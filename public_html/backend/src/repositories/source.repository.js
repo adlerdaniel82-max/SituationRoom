@@ -28,6 +28,11 @@ async function update(id, data) {
     values.push(data.last_run);
   }
 
+  if (data.last_status !== undefined) {
+    fields.push('last_status = ?');
+    values.push(data.last_status);
+  }
+
   if (fields.length === 0) return false;
 
   values.push(id);
@@ -40,8 +45,23 @@ async function updateLastRun(id, timestamp) {
   return update(id, { last_run: timestamp });
 }
 
+async function updateRunState(id, timestamp, status) {
+  return update(id, {
+    last_run: timestamp,
+    last_status: status
+  });
+}
+
 async function getEnabled() {
   return query('SELECT * FROM sources WHERE enabled = 1 ORDER BY id');
 }
 
-module.exports = { list, getById, update, updateLastRun, getEnabled };
+async function getHealth() {
+  try {
+    return await query('SELECT * FROM source_health ORDER BY id');
+  } catch {
+    return list();
+  }
+}
+
+module.exports = { list, getById, update, updateLastRun, updateRunState, getEnabled, getHealth };

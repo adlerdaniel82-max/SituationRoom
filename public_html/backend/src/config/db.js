@@ -35,4 +35,15 @@ async function query(sql, params) {
   return rows;
 }
 
-module.exports = { initDb, query, getPool: () => pool };
+async function ping() {
+  if (!pool) await initDb();
+  const connection = await pool.getConnection();
+  try {
+    await connection.ping();
+    return true;
+  } finally {
+    connection.release();
+  }
+}
+
+module.exports = { initDb, query, ping, getPool: () => pool };

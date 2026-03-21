@@ -15,7 +15,7 @@ UPDATE sources SET config = JSON_OBJECT(
 ) WHERE id = 'usgs';
 
 UPDATE sources SET config = JSON_OBJECT(
-  'feed_url', 'https://www.gdacs.org/xml.aspx',
+  'feed_url', 'https://www.gdacs.org/xml/rss.xml',
   'parse_format', 'rss',
   'timeout', 60
 ) WHERE id = 'gdacs';

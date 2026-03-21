@@ -5,11 +5,20 @@ const logger = require('../utils/logger');
 
 async function list(req, res, next) {
   try {
-    await loadSources();
-    const sources = getSources();
-    res.json(sources);
+    const health = await sourceRepository.getHealth();
+    res.json(health);
   } catch (error) {
     logger.error('Error listing sources:', error);
+    next(error);
+  }
+}
+
+async function getStatus(req, res, next) {
+  try {
+    const health = await sourceRepository.getHealth();
+    res.json(health);
+  } catch (error) {
+    logger.error('Error getting source status:', error);
     next(error);
   }
 }
@@ -54,4 +63,4 @@ async function run(req, res, next) {
   }
 }
 
-module.exports = { list, getById, update, run };
+module.exports = { list, getStatus, getById, update, run };

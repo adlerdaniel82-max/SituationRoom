@@ -109,6 +109,32 @@ function toRad(deg) {
   return deg * (Math.PI / 180);
 }
 
+function toGeoJson(events = []) {
+  return {
+    type: 'FeatureCollection',
+    features: events.map((event) => ({
+      type: 'Feature',
+      geometry: {
+        type: 'Point',
+        coordinates: [event.lon, event.lat]
+      },
+      properties: {
+        id: event.id,
+        title: event.title,
+        type: event.type,
+        source: event.source,
+        score: event.score,
+        severity: event.severity,
+        urgency: event.urgency,
+        timestamp: event.timestamp,
+        magnitude: event.magnitude,
+        affectedPopulation: event.affectedPopulation,
+        url: event.url
+      }
+    }))
+  };
+}
+
 function parseJsonField(value) {
   if (!value || typeof value !== 'string') {
     return value || null;
@@ -129,4 +155,4 @@ function toNullableNumber(value) {
   return value === null || value === undefined ? null : Number(value);
 }
 
-module.exports = { list, getById, getNearby, getStats, create, update, enrichEvent };
+module.exports = { list, getById, getNearby, getStats, create, update, enrichEvent, toGeoJson };

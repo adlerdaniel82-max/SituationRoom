@@ -10,6 +10,7 @@ async function list(req, res, next) {
       startDate,
       endDate,
       bbox,
+      format,
       limit = 100,
       offset = 0
     } = req.query;
@@ -27,6 +28,10 @@ async function list(req, res, next) {
       limit: parsedLimit,
       offset: parsedOffset
     });
+    if (format === 'geojson') {
+      return res.json(eventService.toGeoJson(events));
+    }
+
     res.json(events);
   } catch (error) {
     logger.error('Error listing events:', error);

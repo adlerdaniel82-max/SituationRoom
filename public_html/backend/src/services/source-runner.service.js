@@ -1,5 +1,6 @@
 const { getEnabledSources } = require('../config/sources');
 const logger = require('../utils/logger');
+const sourceRepository = require('../repositories/source.repository');
 
 const importers = {
   usgs: require('../importers/usgs.importer'),
@@ -28,7 +29,9 @@ async function runSource(sourceId) {
     runningJobs.set(sourceId, { started: Date.now() });
     logger.info(`Starting source runner: ${sourceId}`);
 
+    await sourceRepository.updateRunState(sourceId, new Date(), 'running');
     const result = await importer.run();
+    await sourceRepository.updateRunState(sourceId, new Date(), 'ok');
 
     runningJobs.delete(sourceId);
     logger.info(`Source runner completed: ${sourceId}`, result);
@@ -36,6 +39,7 @@ async function runSource(sourceId) {
     return { status: 'completed', ...result };
   } catch (error) {
     runningJobs.delete(sourceId);
+    await sourceRepository.updateRunState(sourceId, new Date(), `error: ${error.message}`.slice(0, 50));
     logger.error(`Source runner failed: ${sourceId}`, error);
     return { status: 'failed', error: error.message };
   }

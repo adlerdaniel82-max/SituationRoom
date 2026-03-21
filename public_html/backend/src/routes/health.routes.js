@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { ping } = require('../config/db');
 
 // GET /api/health - Health check
 router.get('/', (req, res) => {
@@ -12,8 +13,16 @@ router.get('/', (req, res) => {
 
 // GET /api/health/ready - Readiness check
 router.get('/ready', async (req, res) => {
-  // TODO: Add database connectivity check
-  res.json({ ready: true });
+  try {
+    await ping();
+    res.json({ ready: true });
+  } catch (error) {
+    res.status(503).json({
+      ready: false,
+      error: 'database_unreachable',
+      message: error.message
+    });
+  }
 });
 
 module.exports = router;

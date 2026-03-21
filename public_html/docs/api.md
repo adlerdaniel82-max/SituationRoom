@@ -11,16 +11,18 @@
 ### List Events
 
 ```
-GET /api/events?[type=<type>][&source=<source>][&minScore=<score>][&startDate=<date>][&endDate=<date>][&limit=<n>][&offset=<n>]
+GET /api/events?[type=<type[,type2]>][&source=<source[,source2]>][&minScore=<score>][&startDate=<date>][&endDate=<date>][&bbox=<minLon,minLat,maxLon,maxLat>][&format=geojson][&limit=<n>][&offset=<n>]
 ```
 
 **Parameters:**
-- `type` - Filter by event type (earthquake, fire, disaster, conflict, humanitarian, aviation)
-- `source` - Filter by source (usgs, gdacs, firms, acled, reliefweb, opensky)
+- `type` - Filter by one or more event types
+- `source` - Filter by one or more sources
 - `minScore` - Minimum severity score (0-1)
 - `startDate` - Start date (ISO 8601)
 - `endDate` - End date (ISO 8601)
-- `limit` - Max results (default: 100, max: 1000)
+- `bbox` - Bounding box in `minLon,minLat,maxLon,maxLat`
+- `format` - `geojson` for FeatureCollection output, otherwise JSON array
+- `limit` - Max results (default: 100, max: 500)
 - `offset` - Pagination offset
 
 **Response:**
@@ -40,6 +42,29 @@ GET /api/events?[type=<type>][&source=<source>][&minScore=<score>][&startDate=<d
     "urgency": "recent"
   }
 ]
+```
+
+**GeoJSON Response (`format=geojson`):**
+```json
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [139.6503, 35.6762]
+      },
+      "properties": {
+        "id": 1,
+        "title": "M 5.2 Earthquake",
+        "type": "earthquake",
+        "source": "usgs",
+        "score": 0.65
+      }
+    }
+  ]
+}
 ```
 
 ### Get Event
@@ -77,6 +102,12 @@ GET /api/events/stats
 
 ```
 GET /api/sources
+```
+
+### Source Status / Health
+
+```
+GET /api/sources/status
 ```
 
 ### Get Source

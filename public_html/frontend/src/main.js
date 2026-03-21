@@ -310,7 +310,7 @@ async function loadStats() {
 
 async function loadSources() {
   try {
-    state.sources = await fetchJson('/api/sources');
+    state.sources = await fetchJson('/api/sources/status');
     renderSources();
   } catch (error) {
     console.error('Failed to load sources:', error);
@@ -543,11 +543,11 @@ function renderSources() {
       <article class="source-card ${source.enabled ? 'source-card--on' : 'source-card--off'}">
         <div>
           <strong>${escapeHtml(source.name)}</strong>
-          <span>${escapeHtml(source.id)}</span>
+          <span>${escapeHtml(source.id)}${source.health_status ? ` · ${escapeHtml(String(source.health_status))}` : ''}</span>
         </div>
         <div class="source-card__state">
           <span>${source.enabled ? 'aktiv' : 'aus'}</span>
-          <small>${Math.round((source.interval_seconds || 0) / 60) || 0} min</small>
+          <small>${formatSourceStatus(source)}</small>
         </div>
       </article>
     `)
@@ -802,6 +802,15 @@ function formatAbsolute(timestamp) {
 
 function formatNumber(value) {
   return new Intl.NumberFormat('de-DE').format(Number(value || 0));
+}
+
+function formatSourceStatus(source) {
+  if (source.last_status) {
+    return String(source.last_status).slice(0, 42);
+  }
+
+  const minutes = Math.round(Number(source.interval_minutes || (source.interval_seconds || 0) / 60 || 0));
+  return `${minutes} min`;
 }
 
 function escapeHtml(value) {

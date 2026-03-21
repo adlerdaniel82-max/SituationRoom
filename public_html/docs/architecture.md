@@ -10,8 +10,8 @@ Situation Dashboard is a real-time crisis monitoring system that aggregates data
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Frontend                                 │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
-│  │   Leaflet   │  │    API      │  │      UI Components      │  │
-│  │     Map     │  │   Client    │  │  (Sidebar, Panel, etc)  │  │
+│  │  MapLibre   │  │    API      │  │      UI Components      │  │
+│  │   GL Map    │  │   Client    │  │  (Sidebar, Panel, etc)  │  │
 │  └─────────────┘  └─────────────┘  └─────────────────────────┘  │
 │                              │                                   │
 │                         WebSocket                                │
@@ -52,7 +52,7 @@ Situation Dashboard is a real-time crisis monitoring system that aggregates data
 4. **Scoring**: Calculate severity score based on type, magnitude, population
 5. **Storage**: Save to database with spatial indexes
 6. **Broadcast**: WebSocket pushes new events to connected clients
-7. **Display**: Frontend updates map markers and event list
+7. **Display**: Frontend updates clustered layers, source status and event list
 
 ## Key Services
 
@@ -67,7 +67,7 @@ Situation Dashboard is a real-time crisis monitoring system that aggregates data
 ```
 public_html/
 ├── backend/          # Node.js Express API
-├── frontend/         # Vanilla JS + Leaflet
+├── frontend/         # Vanilla JS + MapLibre GL
 ├── sql/              # Database schema and views
 ├── cron/             # Cron job configurations
 └── docs/             # Documentation

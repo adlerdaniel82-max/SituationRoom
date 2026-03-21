@@ -44,15 +44,16 @@ ORDER BY event_count DESC;
 -- Events by source summary
 CREATE OR REPLACE VIEW events_by_source_summary AS
 SELECT 
-  source,
+  e.source,
+  s.name as source_name,
   COUNT(*) as event_count,
   COUNT(CASE WHEN score >= 0.6 THEN 1 END) as significant_count,
   AVG(score) as avg_score,
   MAX(timestamp) as last_import,
-  TIMESTAMPDIFF(MINUTE, last_run, NOW()) as minutes_since_run
+  TIMESTAMPDIFF(MINUTE, s.last_run, NOW()) as minutes_since_run
 FROM events e
 LEFT JOIN sources s ON e.source = s.id
-GROUP BY source
+GROUP BY e.source, s.name, s.last_run
 ORDER BY event_count DESC;
 
 -- Hourly event timeline (last 48 hours)
@@ -98,11 +99,12 @@ SELECT
   s.last_run,
   s.last_status,
   TIMESTAMPDIFF(MINUTE, s.last_run, NOW()) as minutes_since_run,
+  ROUND(s.interval_seconds / 60, 2) as interval_minutes,
   CASE 
     WHEN s.enabled = 0 THEN 'disabled'
     WHEN s.last_run IS NULL THEN 'never_run'
-    WHEN TIMESTAMPDIFF(MINUTE, s.last_run, NOW()) > s.interval_seconds * 2 THEN 'overdue'
-    WHEN TIMESTAMPDIFF(MINUTE, s.last_run, NOW()) > s.interval_seconds THEN 'due_soon'
+    WHEN TIMESTAMPDIFF(SECOND, s.last_run, NOW()) > s.interval_seconds * 2 THEN 'overdue'
+    WHEN TIMESTAMPDIFF(SECOND, s.last_run, NOW()) > s.interval_seconds THEN 'due_soon'
     ELSE 'healthy'
   END as health_status,
   (SELECT COUNT(*) FROM events e WHERE e.source = s.id AND e.timestamp >= DATE_SUB(NOW(), INTERVAL 24 HOUR)) as events_last_24h
