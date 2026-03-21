@@ -1,0 +1,21 @@
+# Situation Dashboard Crontab Configuration
+# Copy this file to /etc/cron.d/situation or run: crontab crontab.example
+
+# Environment
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+NODE_ENV=production
+
+# Source runners - adjust intervals based on source configuration
+*/5 * * * * cd /home/webuser/web/situation.schnueddels.de/public_html/backend && npm run job:usgs >> /home/webuser/web/situation.schnueddels.de/logs/usgs.log 2>&1
+*/10 * * * * cd /home/webuser/web/situation.schnueddels.de/public_html/backend && npm run job:gdacs >> /home/webuser/web/situation.schnueddels.de/logs/gdacs.log 2>&1
+*/10 * * * * cd /home/webuser/web/situation.schnueddels.de/public_html/backend && npm run job:firms >> /home/webuser/web/situation.schnueddels.de/logs/firms.log 2>&1
+0 * * * * cd /home/webuser/web/situation.schnueddels.de/public_html/backend && npm run job:acled >> /home/webuser/web/situation.schnueddels.de/logs/acled.log 2>&1
+*/30 * * * * cd /home/webuser/web/situation.schnueddels.de/public_html/backend && npm run job:reliefweb >> /home/webuser/web/situation.schnueddels.de/logs/reliefweb.log 2>&1
+*/5 * * * * cd /home/webuser/web/situation.schnueddels.de/public_html/backend && npm run job:opensky >> /home/webuser/web/situation.schnueddels.de/logs/opensky.log 2>&1
+
+# Cleanup job - run daily at 3 AM
+0 3 * * * cd /home/webuser/web/situation.schnueddels.de/public_html/backend && npm run job:cleanup >> /home/webuser/web/situation.schnueddels.de/logs/cleanup.log 2>&1
+
+# Health check - every minute
+* * * * * curl -sf http://localhost:3000/api/health > /dev/null || (echo "Health check failed" | mail -s "Situation Dashboard Alert" admin@example.com)

@@ -1,0 +1,30 @@
+{
+  "name": "situation-backend",
+  "version": "1.0.0",
+  "description": "Backend for Situation Dashboard - Real-time crisis monitoring",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "job:usgs": "node src/jobs/run-usgs.js",
+    "job:gdacs": "node src/jobs/run-gdacs.js",
+    "job:firms": "node src/jobs/run-firms.js",
+    "job:acled": "node src/jobs/run-acled.js",
+    "job:reliefweb": "node src/jobs/run-reliefweb.js",
+    "job:opensky": "node src/jobs/run-opensky.js",
+    "job:cleanup": "node src/jobs/cleanup.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mysql2": "^3.6.0",
+    "dotenv": "^16.3.1",
+    "axios": "^1.5.0",
+    "ws": "^8.14.0",
+    "winston": "^3.10.0",
+    "cors": "^2.8.5",
+    "node-cron": "^3.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

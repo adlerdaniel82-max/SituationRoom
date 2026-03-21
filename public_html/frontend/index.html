@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Situation Room</title>
+  <meta
+    name="description"
+    content="Globale Lagekarte mit Live-Ereignissen, Clustern, Filtern und Quellenstatus."
+  >
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="./src/styles/app.css?v=20260321a">
+</head>
+<body>
+  <div class="app-shell">
+    <div id="map" class="map-canvas" aria-label="Weltkarte"></div>
+
+    <button
+      id="sidebar-toggle"
+      class="sidebar-toggle"
+      type="button"
+      aria-controls="sidebar"
+      aria-expanded="true"
+    >
+      Lagepanel
+    </button>
+
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <div>
+          <p class="eyebrow">Situation Room</p>
+          <h1>World Incident Map</h1>
+        </div>
+        <button id="sidebar-close" class="icon-button" type="button" aria-label="Panel schließen">
+          ×
+        </button>
+      </div>
+
+      <section class="sidebar-section">
+        <div class="section-header">
+          <h2>Live Lage</h2>
+          <button id="refresh-button" class="text-button" type="button">Aktualisieren</button>
+        </div>
+        <div id="status-badge" class="status-badge">Initialisiere …</div>
+        <div id="stats-grid" class="stats-grid"></div>
+      </section>
+
+      <section class="sidebar-section">
+        <div class="section-header">
+          <h2>Filter</h2>
+          <button id="reset-filters" class="text-button" type="button">Zurücksetzen</button>
+        </div>
+        <div id="filter-groups" class="filter-groups"></div>
+      </section>
+
+      <section class="sidebar-section sidebar-section--grow">
+        <div class="section-header">
+          <h2>Ereignisse</h2>
+          <span id="event-count" class="section-meta">0</span>
+        </div>
+        <div id="event-list" class="event-list"></div>
+      </section>
+
+      <section class="sidebar-section">
+        <div class="section-header">
+          <h2>Quellen</h2>
+        </div>
+        <div id="sources-list" class="sources-list"></div>
+      </section>
+    </aside>
+
+    <aside id="detail-panel" class="detail-panel" aria-live="polite"></aside>
+  </div>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script type="module" src="./src/main.js?v=20260321a"></script>
+</body>
+</html>
