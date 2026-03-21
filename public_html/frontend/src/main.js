@@ -110,6 +110,7 @@ function initMap() {
     installMapLayers();
     wireMapInteractions();
     await loadViewportData();
+    scheduleViewportRefresh(250);
   });
 
   state.map.on('moveend', () => scheduleViewportRefresh(150));
@@ -155,21 +156,6 @@ function installMapLayers() {
       ],
       'circle-stroke-width': 2,
       'circle-stroke-color': '#f8f2e7'
-    }
-  });
-
-  state.map.addLayer({
-    id: 'event-cluster-count',
-    type: 'symbol',
-    source: 'events',
-    filter: ['has', 'point_count'],
-    layout: {
-      'text-field': ['get', 'point_count_abbreviated'],
-      'text-font': ['Open Sans Bold'],
-      'text-size': 12
-    },
-    paint: {
-      'text-color': '#fff9ef'
     }
   });
 
@@ -270,7 +256,7 @@ function wireMapInteractions() {
 }
 
 async function loadViewportData() {
-  if (!state.map?.isStyleLoaded()) {
+  if (!state.map?.getSource('events')) {
     return;
   }
 
