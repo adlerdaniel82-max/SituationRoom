@@ -68,6 +68,13 @@ button {
   padding: 12px 18px;
   backdrop-filter: blur(18px);
   box-shadow: var(--shadow);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.sidebar-toggle--hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-10px);
 }
 
 .sidebar {

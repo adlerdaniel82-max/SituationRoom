@@ -73,6 +73,7 @@ document.addEventListener('DOMContentLoaded', init);
 async function init() {
   renderFilterGroups();
   bindUi();
+  syncSidebarToggle();
   initMap();
   await loadSources();
   await loadStats();
@@ -653,17 +654,21 @@ function toggleSidebar() {
 function openSidebarPanel() {
   state.sidebarOpen = true;
   nodes.sidebar.classList.remove('sidebar--closed');
-  nodes.sidebarToggle.setAttribute('aria-expanded', 'true');
-  nodes.sidebarToggle.textContent = 'Panel schließen';
+  syncSidebarToggle();
   state.map?.resize();
 }
 
 function closeSidebar() {
   state.sidebarOpen = false;
   nodes.sidebar.classList.add('sidebar--closed');
-  nodes.sidebarToggle.setAttribute('aria-expanded', 'false');
-  nodes.sidebarToggle.textContent = 'Lagepanel';
+  syncSidebarToggle();
   state.map?.resize();
+}
+
+function syncSidebarToggle() {
+  nodes.sidebarToggle.setAttribute('aria-expanded', state.sidebarOpen ? 'true' : 'false');
+  nodes.sidebarToggle.textContent = 'Lagepanel';
+  nodes.sidebarToggle.classList.toggle('sidebar-toggle--hidden', state.sidebarOpen);
 }
 
 function scheduleViewportRefresh(delayMs = 250) {
