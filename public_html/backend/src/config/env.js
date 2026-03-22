@@ -34,6 +34,29 @@ module.exports = {
     opensky: process.env.OPENSKY_API_KEY || ''
   },
 
+  sourceAuth: {
+    acled: {
+      username: process.env.ACLED_USERNAME || '',
+      altUsername: process.env.ACLED_ALT_USERNAME || '',
+      password: process.env.ACLED_PASSWORD || '',
+      clientId: process.env.ACLED_CLIENT_ID || 'acled'
+    },
+    opensky: {
+      clientId: process.env.OPENSKY_CLIENT_ID || '',
+      clientSecret: process.env.OPENSKY_CLIENT_SECRET || ''
+    }
+  },
+
+  sourceOptions: {
+    firms: {
+      dataset: process.env.FIRMS_DATASET || 'VIIRS_SNPP_NRT',
+      dayRange: parseInt(process.env.FIRMS_DAY_RANGE, 10) || 1
+    },
+    reliefweb: {
+      appname: process.env.RELIEFWEB_APPNAME || 'situation.schnueddels.de'
+    }
+  },
+
   scoring: {
     weightDistance: parseFloat(process.env.SCORING_WEIGHT_DISTANCE) || 0.4,
     weightTime: parseFloat(process.env.SCORING_WEIGHT_TIME) || 0.3,

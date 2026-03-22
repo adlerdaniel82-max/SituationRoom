@@ -62,6 +62,11 @@ Situation Dashboard aggregates data from multiple crisis monitoring sources. Eac
 
 **Requires API Key:** Yes (free from NASA)
 
+**Auth / Request Shape:**
+- NASA MAP key in `FIRMS_API_KEY`
+- CSV area endpoint with key in URL path
+- Current importer uses `VIIRS_SNPP_NRT`, global bbox and `1` day range
+
 ---
 
 ### ACLED (Armed Conflict Location & Event Data)
@@ -70,7 +75,7 @@ Situation Dashboard aggregates data from multiple crisis monitoring sources. Eac
 **ID:** `acled`  
 **Default Interval:** 60 minutes
 
-**API:** https://api.acleddata.com/acledapi.json
+**API:** https://acleddata.com/api/acled/read
 
 **Data:**
 - Conflict events
@@ -78,7 +83,17 @@ Situation Dashboard aggregates data from multiple crisis monitoring sources. Eac
 - Violence against civilians
 - Fatalities count
 
-**Requires API Key:** Yes (free registration)
+**Auth:** OAuth2 password grant
+
+**Required Env Vars:**
+- `ACLED_USERNAME`
+- `ACLED_PASSWORD`
+- `ACLED_CLIENT_ID` (`acled` by default)
+
+**Notes:**
+- Importer requests a Bearer token from `https://acleddata.com/oauth/token`
+- Access token lifetime is documented as 24 hours; refresh token lifetime as 14 days
+- The current account may still need API access enabled in ACLED if data requests return `403 Access denied`
 
 ---
 
@@ -88,14 +103,22 @@ Situation Dashboard aggregates data from multiple crisis monitoring sources. Eac
 **ID:** `reliefweb`  
 **Default Interval:** 30 minutes
 
-**API:** https://api.reliefweb.int/v1/reports
+**API:** https://api.reliefweb.int/v2/reports
 
 **Data:**
 - Humanitarian reports
 - Disaster responses
 - Crisis updates
 
-**Requires API Key:** Yes (free)
+**Auth / Access Model:** approved `appname`
+
+**Required Env Vars:**
+- `RELIEFWEB_APPNAME`
+
+**Notes:**
+- Current API access is bound to an approved `appname`, not a classic API key.
+- The importer currently uses `POST /v2/reports?appname=...` with `preset=latest` and `profile=list`.
+- If the `appname` is not approved, ReliefWeb returns `403` with an explicit approval hint.
 
 ---
 
@@ -113,8 +136,23 @@ Situation Dashboard aggregates data from multiple crisis monitoring sources. Eac
 - Unusual flight patterns
 
 **Features:**
-- Filtered for low-altitude aircraft (<1000m)
+- Filtered to selected special-interest traffic only
 - Useful for emergency response monitoring
+
+**Auth:** OAuth2 client credentials
+
+**Required Env Vars:**
+- `OPENSKY_CLIENT_ID`
+- `OPENSKY_CLIENT_SECRET`
+
+**Notes:**
+- Importer fetches a Bearer token from the OpenSky auth realm and refreshes it automatically before expiry.
+- On `401 Unauthorized`, the importer refreshes the token once and retries the request.
+- Importer requests `/states/all` with `extended=1` so OpenSky includes the documented `category` field.
+- Importer prefers these classes only: aircraft without callsign, aircraft with unknown callsign, military-size aircraft, unmanned aerial vehicles, space / trans-atmospheric vehicles, and emergency surface vehicles.
+- OpenSky category codes `4-7`, `14`, `15`, and `16` are used directly when present.
+- Category `4-7` indicates size/performance classes, not confirmed military ownership; in Situation Room they are treated as "military-size" heuristics.
+- If a response still lacks usable category data, the importer falls back to no/unknown callsign plus airborne/trackable heuristics.
 
 ---
 
@@ -171,7 +209,7 @@ module.exports = { run };
 Check source health via API:
 
 ```bash
-curl http://localhost:3000/api/sources
+curl http://localhost:3001/api/sources/status
 ```
 
 View `source_health` database view for detailed status.

@@ -40,7 +40,7 @@ async function runSource(sourceId) {
   } catch (error) {
     runningJobs.delete(sourceId);
     await sourceRepository.updateRunState(sourceId, new Date(), `error: ${error.message}`.slice(0, 50));
-    logger.error(`Source runner failed: ${sourceId}`, error);
+    logger.error(`Source runner failed: ${sourceId}`, summarizeError(error));
     return { status: 'failed', error: error.message };
   }
 }
@@ -65,6 +65,14 @@ function getRunningJobs() {
     };
   }
   return jobs;
+}
+
+function summarizeError(error) {
+  return {
+    message: error.message,
+    status: error.response?.status,
+    code: error.code
+  };
 }
 
 module.exports = { runSource, runAllEnabled, getRunningJobs, importers };

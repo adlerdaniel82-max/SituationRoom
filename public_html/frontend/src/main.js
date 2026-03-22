@@ -35,13 +35,19 @@ const SOURCE_OPTIONS = [
   { value: 'opensky', label: 'OpenSky' }
 ];
 
+const DEFAULT_SOURCE_FILTERS = new Set(
+  SOURCE_OPTIONS
+    .filter((entry) => entry.value !== 'reliefweb')
+    .map((entry) => entry.value)
+);
+
 const state = {
   map: null,
   events: [],
   sources: [],
   filters: {
     types: new Set(TYPE_OPTIONS.map((entry) => entry.value)),
-    sources: new Set(SOURCE_OPTIONS.map((entry) => entry.value)),
+    sources: new Set(DEFAULT_SOURCE_FILTERS),
     minScore: 0
   },
   selectedEventId: null,
@@ -445,13 +451,14 @@ function renderFilterGroups() {
 }
 
 function renderCheckbox(kind, option) {
+  const collection = kind === 'type' ? state.filters.types : state.filters.sources;
   return `
     <label class="filter-option">
       <input
         type="checkbox"
         data-filter-kind="${kind}"
         value="${option.value}"
-        checked
+        ${collection.has(option.value) ? 'checked' : ''}
       >
       <span>${option.label}</span>
     </label>
@@ -473,7 +480,7 @@ function onFilterChange(event) {
 
 function resetFilters() {
   state.filters.types = new Set(TYPE_OPTIONS.map((entry) => entry.value));
-  state.filters.sources = new Set(SOURCE_OPTIONS.map((entry) => entry.value));
+  state.filters.sources = new Set(DEFAULT_SOURCE_FILTERS);
   state.filters.minScore = 0;
 
   nodes.filterGroups.querySelectorAll('input[type="checkbox"]').forEach((input) => {
@@ -545,9 +552,13 @@ function renderDetail(event) {
   nodes.detailPanel.classList.add('detail-panel--open');
   nodes.detailPanel.innerHTML = `
     <div class="detail-panel__inner">
-      <button id="detail-close" class="icon-button detail-panel__close" type="button" aria-label="Detailansicht schließen">×</button>
-      <p class="eyebrow">Ereignisdetail</p>
-      <h2>${escapeHtml(event.title)}</h2>
+      <div class="detail-panel__header">
+        <div class="detail-panel__heading">
+          <p class="eyebrow">Ereignisdetail</p>
+          <h2>${escapeHtml(event.title)}</h2>
+        </div>
+        <button id="detail-close" class="icon-button icon-button--compact detail-panel__close" type="button" aria-label="Detailansicht schließen">×</button>
+      </div>
       <div class="detail-grid">
         ${renderDetailField('Typ', formatType(event.type))}
         ${renderDetailField('Quelle', escapeHtml(event.source.toUpperCase()))}
@@ -558,8 +569,8 @@ function renderDetail(event) {
       </div>
       ${event.description ? `<p class="detail-copy">${escapeHtml(event.description)}</p>` : ''}
       <div class="detail-actions">
-        <button id="focus-event" class="primary-button" type="button">Auf Karte fokussieren</button>
-        ${event.url ? `<a class="secondary-button" href="${encodeURI(event.url)}" target="_blank" rel="noopener">Quelle öffnen</a>` : ''}
+        <button id="focus-event" class="primary-button detail-action-button" type="button">Auf Karte fokussieren</button>
+        ${event.url ? `<a class="secondary-button detail-action-button" href="${encodeURI(event.url)}" target="_blank" rel="noopener">Quelle öffnen</a>` : ''}
       </div>
     </div>
   `;

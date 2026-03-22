@@ -103,6 +103,8 @@ SELECT
   CASE 
     WHEN s.enabled = 0 THEN 'disabled'
     WHEN s.last_run IS NULL THEN 'never_run'
+    WHEN LOWER(COALESCE(s.last_status, '')) LIKE 'error:%' THEN 'error'
+    WHEN LOWER(COALESCE(s.last_status, '')) = 'running' THEN 'running'
     WHEN TIMESTAMPDIFF(SECOND, s.last_run, NOW()) > s.interval_seconds * 2 THEN 'overdue'
     WHEN TIMESTAMPDIFF(SECOND, s.last_run, NOW()) > s.interval_seconds THEN 'due_soon'
     ELSE 'healthy'
