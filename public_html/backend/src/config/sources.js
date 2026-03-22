@@ -6,7 +6,7 @@ const DEFAULT_SOURCES = [
   { id: 'firms', name: 'FIRMS Fires', type: 'fire', enabled: true, interval: 600 },
   { id: 'acled', name: 'ACLED Conflicts', type: 'conflict', enabled: false, interval: 3600 },
   { id: 'reliefweb', name: 'ReliefWeb', type: 'humanitarian', enabled: true, interval: 1800 },
-  { id: 'opensky', name: 'OpenSky Network', type: 'aviation', enabled: false, interval: 60 }
+  { id: 'opensky', name: 'OpenSky Network', type: 'aviation', enabled: true, interval: 60 }
 ];
 
 let sources = [];

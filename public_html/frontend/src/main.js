@@ -35,21 +35,25 @@ const SOURCE_OPTIONS = [
   { value: 'opensky', label: 'OpenSky' }
 ];
 
+const FILTER_STORAGE_KEY = 'situation-room.filters.v1';
+const EMPTY_FILTER_SENTINEL = '__none__';
 const DEFAULT_SOURCE_FILTERS = new Set(
   SOURCE_OPTIONS
     .filter((entry) => entry.value !== 'reliefweb')
     .map((entry) => entry.value)
 );
+const persistedFilters = loadStoredFilters();
 
 const state = {
   map: null,
   events: [],
   sources: [],
   filters: {
-    types: new Set(TYPE_OPTIONS.map((entry) => entry.value)),
-    sources: new Set(DEFAULT_SOURCE_FILTERS),
-    minScore: 0
+    types: new Set(filterPersistedValues(persistedFilters?.types, TYPE_OPTIONS.map((entry) => entry.value)) || TYPE_OPTIONS.map((entry) => entry.value)),
+    sources: new Set(filterPersistedValues(persistedFilters?.sources, SOURCE_OPTIONS.map((entry) => entry.value)) || DEFAULT_SOURCE_FILTERS),
+    minScore: clampMinScore(persistedFilters?.minScore)
   },
+  hasStoredSourceFilters: Array.isArray(persistedFilters?.sources),
   selectedEventId: null,
   sidebarOpen: true,
   loadToken: 0,
@@ -77,11 +81,11 @@ const nodes = {
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
-  renderFilterGroups();
   bindUi();
   syncSidebarToggle();
-  initMap();
   await loadSources();
+  renderFilterGroups();
+  initMap();
   await loadStats();
   connectWebSocket();
 }
@@ -304,6 +308,8 @@ async function loadStats() {
 async function loadSources() {
   try {
     state.sources = await fetchJson('/api/sources/status');
+    reconcileSourceFilters();
+    saveStoredFilters();
     renderSources();
   } catch (error) {
     console.error('Failed to load sources:', error);
@@ -326,11 +332,15 @@ function buildEventQuery() {
   params.set('limit', String(getViewportLimit()));
   params.set('minScore', String(state.filters.minScore));
 
-  if (state.filters.types.size > 0 && state.filters.types.size < TYPE_OPTIONS.length) {
+  if (state.filters.types.size === 0) {
+    params.set('type', EMPTY_FILTER_SENTINEL);
+  } else if (state.filters.types.size < TYPE_OPTIONS.length) {
     params.set('type', Array.from(state.filters.types).join(','));
   }
 
-  if (state.filters.sources.size > 0 && state.filters.sources.size < SOURCE_OPTIONS.length) {
+  if (state.filters.sources.size === 0) {
+    params.set('source', EMPTY_FILTER_SENTINEL);
+  } else if (state.filters.sources.size < SOURCE_OPTIONS.length) {
     params.set('source', Array.from(state.filters.sources).join(','));
   }
 
@@ -431,8 +441,8 @@ function renderFilterGroups() {
     <section class="filter-group">
       <h3>Mindestscore</h3>
       <label class="range-filter">
-        <input id="min-score" type="range" min="0" max="0.9" step="0.1" value="0">
-        <span id="min-score-value">0%</span>
+        <input id="min-score" type="range" min="0" max="0.9" step="0.1" value="${state.filters.minScore}">
+        <span id="min-score-value">${Math.round(state.filters.minScore * 100)}%</span>
       </label>
     </section>
   `;
@@ -446,18 +456,22 @@ function renderFilterGroups() {
   minScoreInput.addEventListener('input', () => {
     state.filters.minScore = Number(minScoreInput.value);
     minScoreValue.textContent = `${Math.round(state.filters.minScore * 100)}%`;
+    saveStoredFilters();
     scheduleViewportRefresh(0);
   });
 }
 
 function renderCheckbox(kind, option) {
   const collection = kind === 'type' ? state.filters.types : state.filters.sources;
+  const sourceStatus = kind === 'source' ? state.sources.find((entry) => entry.id === option.value) : null;
+  const isDisabledSource = Boolean(sourceStatus) && !sourceStatus.enabled;
   return `
-    <label class="filter-option">
+    <label class="filter-option ${isDisabledSource ? 'filter-option--disabled' : ''}">
       <input
         type="checkbox"
         data-filter-kind="${kind}"
         value="${option.value}"
+        ${isDisabledSource ? 'disabled' : ''}
         ${collection.has(option.value) ? 'checked' : ''}
       >
       <span>${option.label}</span>
@@ -475,23 +489,21 @@ function onFilterChange(event) {
     collection.delete(input.value);
   }
 
+  if (input.dataset.filterKind === 'source') {
+    state.hasStoredSourceFilters = true;
+  }
+
+  saveStoredFilters();
   scheduleViewportRefresh(0);
 }
 
 function resetFilters() {
   state.filters.types = new Set(TYPE_OPTIONS.map((entry) => entry.value));
-  state.filters.sources = new Set(DEFAULT_SOURCE_FILTERS);
+  state.filters.sources = getDefaultSourceFilters();
   state.filters.minScore = 0;
-
-  nodes.filterGroups.querySelectorAll('input[type="checkbox"]').forEach((input) => {
-    input.checked = true;
-  });
-
-  const minScoreInput = document.getElementById('min-score');
-  const minScoreValue = document.getElementById('min-score-value');
-  minScoreInput.value = '0';
-  minScoreValue.textContent = '0%';
-
+  state.hasStoredSourceFilters = false;
+  saveStoredFilters();
+  renderFilterGroups();
   scheduleViewportRefresh(0);
 }
 
@@ -546,6 +558,77 @@ function renderSources() {
       </article>
     `)
     .join('');
+}
+
+function reconcileSourceFilters() {
+  const enabledSources = new Set(
+    state.sources
+      .filter((source) => source.enabled)
+      .map((source) => source.id)
+  );
+
+  if (enabledSources.size === 0) {
+    return;
+  }
+
+  if (state.hasStoredSourceFilters) {
+    state.filters.sources = new Set(
+      Array.from(state.filters.sources).filter((sourceId) => enabledSources.has(sourceId))
+    );
+    return;
+  }
+
+  state.filters.sources = getDefaultSourceFilters(enabledSources);
+}
+
+function getDefaultSourceFilters(enabledSources = null) {
+  const allowed = enabledSources || new Set(state.sources.filter((source) => source.enabled).map((source) => source.id));
+  return new Set(
+    Array.from(DEFAULT_SOURCE_FILTERS).filter((sourceId) => allowed.size === 0 || allowed.has(sourceId))
+  );
+}
+
+function loadStoredFilters() {
+  try {
+    const raw = window.localStorage.getItem(FILTER_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredFilters() {
+  try {
+    window.localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify({
+      types: Array.from(state.filters.types),
+      sources: Array.from(state.filters.sources),
+      minScore: state.filters.minScore
+    }));
+  } catch {
+    // Ignore storage errors in privacy mode / restricted browsers.
+  }
+}
+
+function filterPersistedValues(values, allowed) {
+  if (!Array.isArray(values)) {
+    return null;
+  }
+
+  const allowedSet = new Set(allowed);
+  return values.filter((value) => allowedSet.has(value));
+}
+
+function clampMinScore(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(parsed, 0.9));
 }
 
 function renderDetail(event) {

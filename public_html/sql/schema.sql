@@ -98,5 +98,5 @@ INSERT INTO sources (id, name, type, enabled, interval_seconds) VALUES
   ('firms', 'FIRMS Fires', 'fire', 1, 600),
   ('acled', 'ACLED Conflicts', 'conflict', 1, 3600),
   ('reliefweb', 'ReliefWeb', 'humanitarian', 1, 1800),
-  ('opensky', 'OpenSky Network', 'aviation', 0, 60)
+  ('opensky', 'OpenSky Network', 'aviation', 1, 60)
 ON DUPLICATE KEY UPDATE name=VALUES(name);
