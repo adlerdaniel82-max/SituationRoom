@@ -28,5 +28,7 @@ CREATE INDEX idx_clusters_time ON clusters(start_time, end_time);
 ANALYZE TABLE events;
 ANALYZE TABLE sources;
 ANALYZE TABLE raw_data;
+ANALYZE TABLE raw_events;
+ANALYZE TABLE event_updates;
 ANALYZE TABLE correlations;
 ANALYZE TABLE clusters;

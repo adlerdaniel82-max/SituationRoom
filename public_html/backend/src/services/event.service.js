@@ -1,4 +1,5 @@
 const eventRepository = require('../repositories/event.repository');
+const rawRepository = require('../repositories/raw.repository');
 const scoringService = require('./scoring.service');
 const dedupService = require('./dedup.service');
 const { getWebSocketServer } = require('./ws.service');
@@ -52,12 +53,18 @@ async function create(eventData) {
 
   const id = await eventRepository.create(event);
   const createdEvent = enrichEvent({ ...event, id });
+  await persistRawEventSnapshot(createdEvent, eventData);
   broadcastEventCreated(createdEvent);
   scheduleStatsBroadcast();
   return { ...createdEvent, isDuplicate: false };
 }
 
 async function update(id, updates) {
+  const previousEvent = await getById(id);
+  if (!previousEvent) {
+    return false;
+  }
+
   const score = updates.data ? await scoringService.calculate(updates.data) : undefined;
   const didUpdate = await eventRepository.update(id, { ...updates, score, updated_at: new Date() });
   if (!didUpdate) {
@@ -66,6 +73,7 @@ async function update(id, updates) {
 
   const updatedEvent = await getById(id);
   if (updatedEvent) {
+    await persistEventUpdate(previousEvent, updatedEvent);
     broadcastEventUpdated(updatedEvent);
     scheduleStatsBroadcast();
   }
@@ -182,6 +190,72 @@ function toNumber(value) {
 
 function toNullableNumber(value) {
   return value === null || value === undefined ? null : Number(value);
+}
+
+async function persistRawEventSnapshot(createdEvent, sourcePayload) {
+  try {
+    await rawRepository.storeRawEvent({
+      eventId: createdEvent.id,
+      source: createdEvent.source,
+      eventHash: createdEvent.event_hash || null,
+      payload: {
+        source_payload: sourcePayload,
+        normalized_event: createdEvent
+      }
+    });
+  } catch (error) {
+    logger.warn(`Unable to persist raw event snapshot: ${error.message}`);
+  }
+}
+
+async function persistEventUpdate(previousEvent, updatedEvent) {
+  const changedFields = getChangedFields(previousEvent, updatedEvent);
+  if (changedFields.length === 0) {
+    return;
+  }
+
+  try {
+    await rawRepository.storeEventUpdate({
+      eventId: updatedEvent.id,
+      source: updatedEvent.source,
+      changedFields,
+      beforeState: sanitizeHistorySnapshot(previousEvent),
+      afterState: sanitizeHistorySnapshot(updatedEvent)
+    });
+  } catch (error) {
+    logger.warn(`Unable to persist event update snapshot: ${error.message}`);
+  }
+}
+
+function getChangedFields(previousEvent, updatedEvent) {
+  const changedFields = [];
+  const previousSnapshot = sanitizeHistorySnapshot(previousEvent);
+  const updatedSnapshot = sanitizeHistorySnapshot(updatedEvent);
+
+  for (const key of Object.keys(updatedSnapshot)) {
+    if (JSON.stringify(previousSnapshot[key]) !== JSON.stringify(updatedSnapshot[key])) {
+      changedFields.push(key);
+    }
+  }
+
+  return changedFields;
+}
+
+function sanitizeHistorySnapshot(event) {
+  return {
+    title: event.title,
+    type: event.type,
+    source: event.source,
+    lat: event.lat,
+    lon: event.lon,
+    magnitude: event.magnitude,
+    depth: event.depth,
+    affectedPopulation: event.affectedPopulation ?? event.affected_population ?? null,
+    timestamp: event.timestamp,
+    url: event.url,
+    score: event.score,
+    data: event.data
+  };
 }
 
 function broadcastEventCreated(event) {
