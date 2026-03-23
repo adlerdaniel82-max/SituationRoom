@@ -30,6 +30,23 @@ INSERT INTO sources (id, name, type, enabled, interval_seconds, config) VALUES
     )
   ),
   (
+    'gdelt',
+    'GDELT Attention',
+    'humanitarian',
+    1,
+    1800,
+    JSON_OBJECT(
+      'doc_endpoint', 'https://api.gdeltproject.org/api/v2/doc/doc',
+      'query_mode', 'country_attention',
+      'timespan', '6h',
+      'maxrecords', 60,
+      'min_country_articles', 2,
+      'max_countries', 12,
+      'country_lookup', 'https://restcountries.com/v3.1/name',
+      'timeout', 30
+    )
+  ),
+  (
     'noaa_tsunami',
     'NOAA Tsunami',
     'tsunami',

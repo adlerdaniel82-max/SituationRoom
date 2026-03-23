@@ -3,6 +3,7 @@ const { query } = require('./db');
 const DEFAULT_SOURCES = [
   { id: 'usgs', name: 'USGS Earthquakes', type: 'earthquake', enabled: true, interval: 300 },
   { id: 'gdacs', name: 'GDACS Disasters', type: 'disaster', enabled: true, interval: 600 },
+  { id: 'gdelt', name: 'GDELT Attention', type: 'humanitarian', enabled: true, interval: 1800 },
   { id: 'noaa_tsunami', name: 'NOAA Tsunami', type: 'tsunami', enabled: true, interval: 300 },
   { id: 'firms', name: 'FIRMS Fires', type: 'fire', enabled: true, interval: 600 },
   { id: 'acled', name: 'ACLED Conflicts', type: 'conflict', enabled: false, interval: 3600 },

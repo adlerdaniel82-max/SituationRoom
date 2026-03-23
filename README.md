@@ -21,6 +21,7 @@ Wichtige Einschränkungen:
 Aktuell integriert:
 - `USGS`
 - `GDACS`
+- `GDELT Attention`
 - `NOAA Tsunami`
 - `FIRMS`
 - `ReliefWeb`

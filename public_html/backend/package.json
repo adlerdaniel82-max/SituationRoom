@@ -8,6 +8,7 @@
     "dev": "nodemon src/server.js",
     "job:usgs": "node src/jobs/run-usgs.js",
     "job:gdacs": "node src/jobs/run-gdacs.js",
+    "job:gdelt": "node src/jobs/run-gdelt.js",
     "job:noaa-tsunami": "node src/jobs/run-noaa-tsunami.js",
     "job:firms": "node src/jobs/run-firms.js",
     "job:acled": "node src/jobs/run-acled.js",

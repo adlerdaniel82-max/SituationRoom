@@ -51,6 +51,32 @@ Current bootstrap files:
 
 ---
 
+### GDELT Attention
+
+**Type:** Humanitarian  
+**ID:** `gdelt`  
+**Default Interval:** 30 minutes
+
+**API:** https://api.gdeltproject.org/api/v2/doc/doc
+
+**Role in Situation Room:**
+- Secondary news and attention layer
+- Aggregated by publisher country
+- Not imported as unfiltered article-per-marker stream
+
+**Data:**
+- Global crisis-related news attention
+- Top article bundles per country
+- Distinct domains and latest article time
+
+**Notes:**
+- Current importer uses the GDELT DOC API in `artlist` mode with a broad crisis query window.
+- Articles are grouped by `sourcecountry` and turned into one attention marker per country.
+- Marker coordinates are resolved via country centroids, so this layer represents media attention geography, not verified incident coordinates.
+- The frontend shows `GDELT` as a selectable source, but it is not enabled by default in fresh browser filter states.
+
+---
+
 ### NOAA Tsunami
 
 **Type:** Tsunami  

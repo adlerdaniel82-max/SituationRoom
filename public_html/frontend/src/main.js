@@ -37,6 +37,7 @@ const TYPE_OPTIONS = [
 const SOURCE_OPTIONS = [
   { value: 'usgs', label: 'USGS' },
   { value: 'gdacs', label: 'GDACS' },
+  { value: 'gdelt', label: 'GDELT' },
   { value: 'noaa_tsunami', label: 'NOAA Tsunami' },
   { value: 'firms', label: 'FIRMS' },
   { value: 'acled', label: 'ACLED' },
@@ -46,6 +47,7 @@ const SOURCE_OPTIONS = [
 const SOURCE_MARKER_STYLES = {
   usgs: { shape: 'circle', fill: '#f26b38', stroke: '#fff5ea' },
   gdacs: { shape: 'diamond', fill: '#d8a34a', stroke: '#fff4de' },
+  gdelt: { shape: 'square', fill: '#3b82a8', stroke: '#e1f4ff' },
   noaa_tsunami: { shape: 'circle', fill: '#4fa8ff', stroke: '#e4f4ff' },
   firms: { shape: 'triangle', fill: '#c7392f', stroke: '#ffe5e2' },
   acled: { shape: 'hexagon', fill: '#6f2f8f', stroke: '#f4e1ff' },
@@ -120,7 +122,9 @@ const LEGACY_FILTER_STORAGE_KEY = 'situation-room.filters.v1';
 const EMPTY_FILTER_SENTINEL = '__none__';
 const EVENT_RESPONSE_FORMAT = 'geojson';
 const DEFAULT_SOURCE_FILTERS = new Set(
-  SOURCE_OPTIONS.map((entry) => entry.value)
+  SOURCE_OPTIONS
+    .filter((entry) => entry.value !== 'gdelt')
+    .map((entry) => entry.value)
 );
 const persistedFilters = loadStoredFilters();
 
