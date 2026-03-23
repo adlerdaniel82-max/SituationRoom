@@ -20,4 +20,7 @@ router.get('/timeline', statsController.getTimeline);
 // GET /api/stats/hot-regions - Hot region buckets
 router.get('/hot-regions', statsController.getHotRegions);
 
+// GET /api/stats/markets - Market snapshot
+router.get('/markets', statsController.getMarkets);
+
 module.exports = router;

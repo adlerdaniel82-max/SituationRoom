@@ -63,4 +63,14 @@ async function getHotRegions(req, res, next) {
   }
 }
 
-module.exports = { getOverview, getSummary, getByType, getBySource, getTimeline, getHotRegions };
+async function getMarkets(req, res, next) {
+  try {
+    const markets = await statsService.getMarkets();
+    res.json(markets);
+  } catch (error) {
+    logger.error('Error getting market snapshot:', error);
+    next(error);
+  }
+}
+
+module.exports = { getOverview, getSummary, getByType, getBySource, getTimeline, getHotRegions, getMarkets };

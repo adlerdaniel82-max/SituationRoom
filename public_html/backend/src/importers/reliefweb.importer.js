@@ -95,6 +95,10 @@ function extractLocation(report) {
 
 function buildReportUrl(item) {
   if (item.fields?.url_alias) {
+    if (/^https?:\/\//i.test(item.fields.url_alias)) {
+      return item.fields.url_alias;
+    }
+
     return `https://reliefweb.int${item.fields.url_alias}`;
   }
 

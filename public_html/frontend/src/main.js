@@ -16,6 +16,13 @@ const MAP_STYLE = {
     }
   ]
 };
+const DEFAULT_MAP_CONFIG = {
+  map: {
+    provider: 'osm',
+    maptiler: null
+  }
+};
+const IMPORTANT_EVENT_SCORE_THRESHOLD = 0.5;
 
 const TYPE_OPTIONS = [
   { value: 'earthquake', label: 'Erdbeben' },
@@ -119,6 +126,7 @@ const state = {
   events: [],
   eventFeatureCollection: emptyFeatureCollection(),
   sources: [],
+  markets: [],
   filters: {
     types: new Set(filterPersistedValues(persistedFilters?.types, TYPE_OPTIONS.map((entry) => entry.value)) || TYPE_OPTIONS.map((entry) => entry.value)),
     sources: new Set(filterPersistedValues(persistedFilters?.sources, SOURCE_OPTIONS.map((entry) => entry.value)) || DEFAULT_SOURCE_FILTERS),
@@ -127,8 +135,10 @@ const state = {
   hasStoredSourceFilters: Array.isArray(persistedFilters?.sources),
   selectedEventId: null,
   sidebarOpen: true,
+  sourcesPanelOpen: false,
   loadToken: 0,
   refreshTimer: null,
+  marketRefreshTimer: null,
   ws: null,
   reconnectTimer: null,
   reconnectDelay: 1000
@@ -140,6 +150,8 @@ const nodes = {
   sidebarClose: document.getElementById('sidebar-close'),
   refreshButton: document.getElementById('refresh-button'),
   resetFilters: document.getElementById('reset-filters'),
+  sourcesCollapseToggle: document.getElementById('sources-collapse-toggle'),
+  sourcesSection: document.getElementById('sources-section'),
   legalImpressum: document.getElementById('legal-impressum'),
   legalPrivacy: document.getElementById('legal-privacy'),
   statsGrid: document.getElementById('stats-grid'),
@@ -147,6 +159,7 @@ const nodes = {
   eventCount: document.getElementById('event-count'),
   eventList: document.getElementById('event-list'),
   sourcesList: document.getElementById('sources-list'),
+  marketsGrid: document.getElementById('markets-grid'),
   detailPanel: document.getElementById('detail-panel'),
   statusBadge: document.getElementById('status-badge')
 };
@@ -157,8 +170,11 @@ async function init() {
   bindUi();
   syncSidebarToggle();
   await loadSources();
-  initMap();
+  const mapConfig = await loadMapConfig();
+  await initMap(mapConfig);
   await loadStats();
+  await loadMarkets();
+  state.marketRefreshTimer = window.setInterval(loadMarkets, 5 * 60 * 1000);
   connectWebSocket();
 }
 
@@ -167,20 +183,28 @@ function bindUi() {
   nodes.sidebarClose.addEventListener('click', closeSidebar);
   nodes.refreshButton.addEventListener('click', () => scheduleViewportRefresh(0));
   nodes.resetFilters.addEventListener('click', resetFilters);
+  nodes.sourcesCollapseToggle.addEventListener('click', toggleSourcesPanel);
   nodes.legalImpressum.addEventListener('click', () => openLegalPanel('impressum'));
   nodes.legalPrivacy.addEventListener('click', () => openLegalPanel('privacy'));
 
   window.addEventListener('resize', () => {
+    if (window.innerWidth > 980 && !state.sidebarOpen) {
+      openSidebarPanel();
+    }
     if (state.map) {
       state.map.resize();
     }
   });
+
+  syncSourcesPanel();
 }
 
-function initMap() {
+async function initMap(mapConfig) {
+  const style = await resolveMapStyle(mapConfig);
+
   state.map = new maplibregl.Map({
     container: 'map',
-    style: MAP_STYLE,
+    style,
     center: [8, 24],
     zoom: 2.1,
     minZoom: 1.5,
@@ -200,6 +224,72 @@ function initMap() {
   });
 
   state.map.on('moveend', () => scheduleViewportRefresh(150));
+}
+
+async function loadMapConfig() {
+  try {
+    return await fetchJson('/api/config/public');
+  } catch (error) {
+    console.error('Failed to load public config:', error);
+    return DEFAULT_MAP_CONFIG;
+  }
+}
+
+async function resolveMapStyle(mapConfig) {
+  const maptiler = mapConfig?.map?.maptiler;
+  if (!maptiler?.styleUrl) {
+    return MAP_STYLE;
+  }
+
+  try {
+    const response = await fetch(maptiler.styleUrl, {
+      headers: {
+        Accept: 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const style = await response.json();
+    return applyMapLanguage(style, maptiler.labelLanguage, maptiler.fallbackLanguage);
+  } catch (error) {
+    console.error('Failed to load MapTiler style, falling back to OSM:', error);
+    return MAP_STYLE;
+  }
+}
+
+function applyMapLanguage(style, primaryLanguage = 'de', fallbackLanguage = 'en') {
+  if (!style || !Array.isArray(style.layers)) {
+    return style;
+  }
+
+  const translatedStyle = {
+    ...style,
+    layers: style.layers.map((layer) => {
+      if (!layer.layout?.['text-field']) {
+        return layer;
+      }
+
+      return {
+        ...layer,
+        layout: {
+          ...layer.layout,
+          'text-field': [
+            'coalesce',
+            ['get', `name:${primaryLanguage}`],
+            ['get', `name:${fallbackLanguage}`],
+            ['get', 'name:latin'],
+            ['get', 'name_int'],
+            ['get', 'name']
+          ]
+        }
+      };
+    })
+  };
+
+  return translatedStyle;
 }
 
 function installMapLayers() {
@@ -481,6 +571,17 @@ async function loadSources() {
   }
 }
 
+async function loadMarkets() {
+  try {
+    const payload = await fetchJson('/api/stats/markets');
+    state.markets = Array.isArray(payload?.instruments) ? payload.instruments : [];
+    renderMarkets(payload);
+  } catch (error) {
+    console.error('Failed to load market snapshot:', error);
+    nodes.marketsGrid.innerHTML = '<div class="empty-state">Marktdaten nicht verfügbar.</div>';
+  }
+}
+
 function buildEventQuery() {
   const params = new URLSearchParams();
   const bounds = state.map.getBounds();
@@ -658,16 +759,18 @@ function resetFilters() {
 }
 
 function renderEventList() {
-  nodes.eventCount.textContent = String(state.events.length);
+  const importantEvents = state.events
+    .filter((event) => Number(event.score) > IMPORTANT_EVENT_SCORE_THRESHOLD)
+    .sort((left, right) => right.score - left.score || new Date(right.timestamp) - new Date(left.timestamp));
 
-  if (state.events.length === 0) {
-    nodes.eventList.innerHTML = '<div class="empty-state">Keine Ereignisse im aktuellen Kartenausschnitt.</div>';
+  nodes.eventCount.textContent = String(importantEvents.length);
+
+  if (importantEvents.length === 0) {
+    nodes.eventList.innerHTML = '<div class="empty-state">Keine Meldungen über 50% im aktuellen Kartenausschnitt.</div>';
     return;
   }
 
-  nodes.eventList.innerHTML = state.events
-    .slice()
-    .sort((left, right) => right.score - left.score || new Date(right.timestamp) - new Date(left.timestamp))
+  nodes.eventList.innerHTML = importantEvents
     .map((event) => `
       <button class="event-card ${event.id === state.selectedEventId ? 'event-card--active' : ''}" data-event-id="${event.id}" type="button">
         <span class="event-card__type">${formatType(event.type)}</span>
@@ -707,6 +810,41 @@ function renderSources() {
         </div>
       </article>
     `)
+    .join('');
+}
+
+function toggleSourcesPanel() {
+  state.sourcesPanelOpen = !state.sourcesPanelOpen;
+  syncSourcesPanel();
+}
+
+function syncSourcesPanel() {
+  nodes.sourcesSection.classList.toggle('sources-panel__section--collapsed', !state.sourcesPanelOpen);
+  nodes.sourcesCollapseToggle.setAttribute('aria-expanded', state.sourcesPanelOpen ? 'true' : 'false');
+  nodes.sourcesCollapseToggle.textContent = state.sourcesPanelOpen ? 'Ausblenden' : 'Einblenden';
+}
+
+function renderMarkets(payload) {
+  if (!Array.isArray(state.markets) || state.markets.length === 0) {
+    nodes.marketsGrid.innerHTML = '<div class="empty-state">Keine Marktdaten geladen.</div>';
+    return;
+  }
+
+  nodes.marketsGrid.innerHTML = state.markets
+    .map((instrument) => {
+      const changeTone = instrument.change_percent > 0 ? 'up' : instrument.change_percent < 0 ? 'down' : 'flat';
+      const changeText = formatMarketChange(instrument.change_percent);
+      const meta = instrument.as_of ? formatMarketTimestamp(instrument.as_of) : 'keine Zeit';
+
+      return `
+        <article class="market-card">
+          <span class="market-card__label">${escapeHtml(instrument.label)}</span>
+          <strong class="market-card__value">${formatMarketValue(instrument.close, instrument.unit, instrument.kind)}</strong>
+          <span class="market-card__change market-card__change--${changeTone}">${changeText}</span>
+          <span class="market-card__meta">${escapeHtml(instrument.symbol)} · ${meta}</span>
+        </article>
+      `;
+    })
     .join('');
 }
 
@@ -1155,6 +1293,42 @@ function formatAbsolute(timestamp) {
 
 function formatNumber(value) {
   return new Intl.NumberFormat('de-DE').format(Number(value || 0));
+}
+
+function formatMarketValue(value, unit, kind) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return 'n/v';
+  }
+
+  const options = {
+    minimumFractionDigits: numericValue >= 1000 ? 0 : 2,
+    maximumFractionDigits: numericValue >= 1000 ? 2 : 4
+  };
+
+  if (kind === 'fx') {
+    options.minimumFractionDigits = 2;
+    options.maximumFractionDigits = 4;
+  }
+
+  return `${new Intl.NumberFormat('de-DE', options).format(numericValue)}${unit ? ` ${unit}` : ''}`;
+}
+
+function formatMarketChange(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return 'n/v';
+  }
+
+  const sign = numericValue > 0 ? '+' : '';
+  return `${sign}${numericValue.toFixed(2)}%`;
+}
+
+function formatMarketTimestamp(timestamp) {
+  return new Date(timestamp).toLocaleString('de-DE', {
+    dateStyle: 'short',
+    timeStyle: 'short'
+  });
 }
 
 function formatSourceStatus(source) {

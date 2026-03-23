@@ -57,6 +57,16 @@ module.exports = {
     }
   },
 
+  map: {
+    provider: process.env.MAP_PROVIDER || 'osm',
+    maptiler: {
+      apiKey: process.env.MAPTILER_API_KEY || '',
+      mapId: process.env.MAPTILER_MAP_ID || 'dataviz-v4-dark',
+      labelLanguage: process.env.MAPTILER_LABEL_LANGUAGE || 'de',
+      fallbackLanguage: process.env.MAPTILER_LABEL_FALLBACK || 'en'
+    }
+  },
+
   scoring: {
     weightDistance: parseFloat(process.env.SCORING_WEIGHT_DISTANCE) || 0.4,
     weightTime: parseFloat(process.env.SCORING_WEIGHT_TIME) || 0.3,
