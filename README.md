@@ -9,6 +9,7 @@ Aktueller Funktionsstand:
 - Node-Backend unter `public_html/backend/`
 - MariaDB als Primärspeicher
 - Live-Frontend mit MapLibre, Viewport-Fetch, Filtern, WebSocket-Updates und Detailmodals
+- eigenes Meldungsfenster für GDELT-verifizierte Nachrichtenhinweise
 - Nginx-Setup produktiv auf `situation.schnueddels.de`
 
 Wichtige Einschränkungen:
@@ -76,6 +77,11 @@ Wichtige Variablen:
 - `ACLED_ALT_USERNAME`
 - `ACLED_PASSWORD`
 - `ACLED_CLIENT_ID`
+- `GDELT_QUERY`
+- `GDELT_TIMESPAN`
+- `GDELT_MAX_RECORDS`
+- `GDELT_MIN_COUNTRY_ARTICLES`
+- `GDELT_MAX_COUNTRIES`
 - `MAP_PROVIDER`
 - `MAPTILER_API_KEY`
 - `MAPTILER_MAP_ID`
@@ -105,6 +111,7 @@ Zusätzlich werden Roh- und Änderungshistorien mitgeführt:
 Importjobs:
 - `node public_html/backend/src/jobs/run-usgs.js`
 - `node public_html/backend/src/jobs/run-gdacs.js`
+- `node public_html/backend/src/jobs/run-gdelt.js`
 - `node public_html/backend/src/jobs/run-noaa-tsunami.js`
 - `node public_html/backend/src/jobs/run-firms.js`
 - `node public_html/backend/src/jobs/run-reliefweb.js`
@@ -147,3 +154,5 @@ Der aktuelle Desktop-Aufbau:
 - Detailansichten als zentrierte Modals
 
 Die Basiskarte kann mit MapTiler `dataviz-v4-dark` und deutscher Primärsprache betrieben werden, wenn `MAPTILER_API_KEY` gesetzt ist.
+
+Das Panel `Wichtigste Meldungen` ist aktuell bewusst vom Kartenfilter entkoppelt und zeigt nur `GDELT`-basierte Attention-Meldungen im aktuellen Kartenausschnitt.

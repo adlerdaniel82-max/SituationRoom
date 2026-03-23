@@ -22,7 +22,7 @@ const DEFAULT_MAP_CONFIG = {
     maptiler: null
   }
 };
-const IMPORTANT_EVENT_SCORE_THRESHOLD = 0.5;
+const IMPORTANT_EVENT_SOURCE = 'gdelt';
 
 const TYPE_OPTIONS = [
   { value: 'earthquake', label: 'Erdbeben' },
@@ -131,6 +131,7 @@ const persistedFilters = loadStoredFilters();
 const state = {
   map: null,
   events: [],
+  importantEvents: [],
   eventFeatureCollection: emptyFeatureCollection(),
   sources: [],
   markets: [],
@@ -141,6 +142,7 @@ const state = {
   },
   hasStoredSourceFilters: Array.isArray(persistedFilters?.sources),
   selectedEventId: null,
+  selectedEvent: null,
   sidebarOpen: true,
   sourcesPanelOpen: false,
   loadToken: 0,
@@ -553,6 +555,7 @@ async function loadViewportData() {
     state.events = normalized.events;
     state.eventFeatureCollection = normalized.featureCollection;
     updateMapData();
+    await loadImportantEvents();
     renderEventList();
     syncSelection();
 
@@ -561,6 +564,32 @@ async function loadViewportData() {
   } catch (error) {
     console.error('Failed to load viewport data:', error);
     setStatus('Laden fehlgeschlagen', 'error');
+  }
+}
+
+async function loadImportantEvents() {
+  try {
+    const params = new URLSearchParams();
+    const bounds = state.map.getBounds();
+    const west = bounds.getWest();
+    const south = bounds.getSouth();
+    const east = bounds.getEast();
+    const north = bounds.getNorth();
+
+    if (east >= west) {
+      params.set('bbox', `${west},${south},${east},${north}`);
+    }
+
+    params.set('source', IMPORTANT_EVENT_SOURCE);
+    params.set('limit', '20');
+
+    const payload = await fetchJson(`/api/events?${params.toString()}`);
+    state.importantEvents = Array.isArray(payload)
+      ? payload.map(normalizeEvent).filter(Boolean)
+      : [];
+  } catch (error) {
+    console.error('Failed to load important events:', error);
+    state.importantEvents = [];
   }
 }
 
@@ -659,9 +688,10 @@ function syncSelection() {
     return;
   }
 
-  const selectedEvent = state.events.find((event) => event.id === state.selectedEventId);
+  const selectedEvent = findKnownEvent(state.selectedEventId) || state.selectedEvent;
   if (!selectedEvent) {
     state.selectedEventId = null;
+    state.selectedEvent = null;
     nodes.detailPanel.classList.remove('detail-panel--open');
     nodes.detailPanel.innerHTML = '';
     setSelectedFeature(null);
@@ -775,14 +805,14 @@ function resetFilters() {
 }
 
 function renderEventList() {
-  const importantEvents = state.events
-    .filter((event) => Number(event.score) > IMPORTANT_EVENT_SCORE_THRESHOLD)
+  const importantEvents = state.importantEvents
+    .filter((event) => event.source === IMPORTANT_EVENT_SOURCE)
     .sort((left, right) => right.score - left.score || new Date(right.timestamp) - new Date(left.timestamp));
 
   nodes.eventCount.textContent = String(importantEvents.length);
 
   if (importantEvents.length === 0) {
-    nodes.eventList.innerHTML = '<div class="empty-state">Keine Meldungen über 50% im aktuellen Kartenausschnitt.</div>';
+    nodes.eventList.innerHTML = '<div class="empty-state">Keine GDELT-verifizierten Meldungen im aktuellen Kartenausschnitt.</div>';
     return;
   }
 
@@ -1026,15 +1056,16 @@ function renderDetailField(label, value) {
   `;
 }
 
-function selectEvent(eventId, options = {}) {
+async function selectEvent(eventId, options = {}) {
   const { flyTo = false, openSidebar = false } = options;
-  const event = state.events.find((entry) => entry.id === eventId);
+  const event = await resolveEventById(eventId);
 
   if (!event) {
     return;
   }
 
   state.selectedEventId = eventId;
+  state.selectedEvent = event;
   renderEventList();
   renderDetail(event);
   setSelectedFeature(event);
@@ -1053,6 +1084,7 @@ function selectEvent(eventId, options = {}) {
 
 function clearSelection() {
   state.selectedEventId = null;
+  state.selectedEvent = null;
   nodes.detailBackdrop.classList.remove('detail-backdrop--open');
   nodes.detailBackdrop.hidden = true;
   nodes.detailPanel.classList.remove('detail-panel--open');
@@ -1174,6 +1206,26 @@ function reconnectWebSocket() {
 function setStatus(text, tone) {
   nodes.statusBadge.textContent = text;
   nodes.statusBadge.dataset.tone = tone;
+}
+
+function findKnownEvent(eventId) {
+  return state.events.find((entry) => entry.id === eventId)
+    || state.importantEvents.find((entry) => entry.id === eventId)
+    || null;
+}
+
+async function resolveEventById(eventId) {
+  const knownEvent = findKnownEvent(eventId);
+  if (knownEvent) {
+    return knownEvent;
+  }
+
+  try {
+    return normalizeEvent(await fetchJson(`/api/events/${eventId}`));
+  } catch (error) {
+    console.error(`Failed to resolve event ${eventId}:`, error);
+    return null;
+  }
 }
 
 function normalizeEvent(event) {
