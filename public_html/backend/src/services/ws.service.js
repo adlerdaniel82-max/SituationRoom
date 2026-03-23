@@ -1,8 +1,12 @@
 const WebSocket = require('ws');
 const logger = require('../utils/logger');
+const sourceRepository = require('../repositories/source.repository');
 
 let wss;
+let activeServer = null;
 const clients = new Set();
+const sourceStatusSnapshot = new Map();
+const SOURCE_STATUS_POLL_MS = 5000;
 
 class WebSocketServer {
   constructor(server) {
@@ -11,6 +15,8 @@ class WebSocketServer {
 
   start() {
     wss = new WebSocket.Server({ server: this.server, path: '/ws' });
+    activeServer = this;
+    this.startSourceStatusWatcher();
 
     wss.on('connection', (ws) => {
       logger.debug('WebSocket client connected');
@@ -37,6 +43,20 @@ class WebSocketServer {
     });
 
     logger.info('WebSocket server initialized');
+  }
+
+  startSourceStatusWatcher() {
+    if (this.sourceStatusTimer) {
+      clearInterval(this.sourceStatusTimer);
+    }
+    this.captureInitialSourceStatusSnapshot();
+    this.sourceStatusTimer = setInterval(() => {
+      this.pollSourceStatusChanges();
+    }, SOURCE_STATUS_POLL_MS);
+
+    if (typeof this.sourceStatusTimer.unref === 'function') {
+      this.sourceStatusTimer.unref();
+    }
   }
 
   handleMessage(ws, data) {
@@ -69,14 +89,50 @@ class WebSocketServer {
 
   sendEvent(event) {
     this.broadcast('event:new', event, 'events');
+    this.broadcast('event.created', event, 'events');
   }
 
   sendUpdate(update) {
     this.broadcast('event:update', update, 'events');
+    this.broadcast('event.updated', update, 'events');
   }
 
   sendStats(stats) {
     this.broadcast('stats:update', stats, 'stats');
+  }
+
+  sendSourceStatus(status) {
+    this.broadcast('source.status', status, 'sources');
+  }
+
+  async captureInitialSourceStatusSnapshot() {
+    try {
+      const sources = await sourceRepository.getHealth();
+      for (const source of sources) {
+        sourceStatusSnapshot.set(source.id, buildStatusSignature(source));
+      }
+    } catch (error) {
+      logger.warn(`Unable to initialize source status watcher: ${error.message}`);
+    }
+  }
+
+  async pollSourceStatusChanges() {
+    if (clients.size === 0) {
+      return;
+    }
+
+    try {
+      const sources = await sourceRepository.getHealth();
+      for (const source of sources) {
+        const signature = buildStatusSignature(source);
+        if (sourceStatusSnapshot.get(source.id) !== signature) {
+          sourceStatusSnapshot.set(source.id, signature);
+          this.sendSourceStatus(source);
+        }
+      }
+    } catch (error) {
+      logger.warn(`Unable to poll source status changes: ${error.message}`);
+    }
   }
 
   get clientCount() {
@@ -84,4 +140,20 @@ class WebSocketServer {
   }
 }
 
-module.exports = { WebSocketServer };
+function getWebSocketServer() {
+  return activeServer;
+}
+
+function buildStatusSignature(source) {
+  return JSON.stringify({
+    enabled: source.enabled,
+    interval_seconds: source.interval_seconds,
+    last_run: source.last_run,
+    last_status: source.last_status,
+    health_status: source.health_status,
+    minutes_since_run: source.minutes_since_run,
+    events_last_24h: source.events_last_24h
+  });
+}
+
+module.exports = { WebSocketServer, getWebSocketServer };

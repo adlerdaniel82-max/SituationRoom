@@ -31,24 +31,32 @@ UPDATE sources SET config = JSON_OBJECT(
 ) WHERE id = 'firms';
 
 UPDATE sources SET config = JSON_OBJECT(
-  'api_endpoint', 'https://api.acleddata.com/acledapi.json',
+  'api_endpoint', 'https://acleddata.com/api/acled/read',
+  'auth_endpoint', 'https://acleddata.com/oauth/token',
+  'auth_mode', 'oauth2_password',
   'params', JSON_OBJECT(
-    'limit', 100
+    'limit', 100,
+    'event_date_where', 'BETWEEN'
   ),
-  'requires_api_key', TRUE,
+  'requires_auth', TRUE,
   'timeout', 60
 ) WHERE id = 'acled';
 
 UPDATE sources SET config = JSON_OBJECT(
-  'api_endpoint', 'https://api.reliefweb.int/v1/reports',
+  'api_endpoint', 'https://api.reliefweb.int/v2/reports',
+  'access_model', 'approved_appname',
   'method', 'POST',
-  'requires_api_key', TRUE,
+  'preset', 'latest',
+  'profile', 'list',
   'timeout', 30
 ) WHERE id = 'reliefweb';
 
 UPDATE sources SET config = JSON_OBJECT(
   'api_endpoint', 'https://opensky-network.org/api/states/all',
+  'auth_endpoint', 'https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token',
+  'auth_mode', 'oauth2_client_credentials',
   'params', JSON_OBJECT(
+    'extended', 1,
     'lamin', -90,
     'lamax', 90,
     'lomin', -180,

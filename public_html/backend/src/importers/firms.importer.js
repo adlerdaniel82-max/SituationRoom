@@ -1,11 +1,17 @@
 const axios = require('axios');
 const env = require('../config/env');
+const { MANUAL_INDUSTRIAL_HEAT_ZONES } = require('../config/firms-industrial-hotspots');
+const eventRepository = require('../repositories/event.repository');
 const eventService = require('../services/event.service');
 const logger = require('../utils/logger');
 
 const FIRMS_API_BASE = 'https://firms.modaps.eosdis.nasa.gov/api/area/csv';
 const GLOBAL_AREA = '-180,-90,180,90';
 const MAX_EVENTS_PER_RUN = 150;
+const INDUSTRIAL_BUCKET_PRECISION = 2;
+const INDUSTRIAL_LOOKBACK_DAYS = 21;
+const INDUSTRIAL_MIN_EVENTS = 8;
+const INDUSTRIAL_MIN_DISTINCT_DAYS = 4;
 
 async function run() {
   logger.info('Running FIRMS importer');
@@ -20,6 +26,7 @@ async function run() {
   const url = `${FIRMS_API_BASE}/${encodeURIComponent(apiKey)}/${dataset}/${GLOBAL_AREA}/${dayRange}`;
 
   try {
+    const industrialHeatBuckets = await loadIndustrialHeatBuckets();
     const response = await axios.get(url, {
       timeout: 30000,
       responseType: 'text'
@@ -31,8 +38,14 @@ async function run() {
 
     let imported = 0;
     let duplicates = 0;
+    let suppressedIndustrial = 0;
 
     for (const fire of fires) {
+      if (isPersistentIndustrialHeat(fire, industrialHeatBuckets) || isManualIndustrialHeat(fire)) {
+        suppressedIndustrial += 1;
+        continue;
+      }
+
       const event = {
         title: `Fire detected at ${fire.latitude.toFixed(2)}, ${fire.longitude.toFixed(2)}`,
         type: 'fire',
@@ -52,8 +65,15 @@ async function run() {
       }
     }
 
-    logger.info(`FIRMS importer completed: ${imported} imported, ${duplicates} duplicates`);
-    return { imported, duplicates, total: fires.length, dataset, dayRange };
+    logger.info(`FIRMS importer completed: ${imported} imported, ${duplicates} duplicates, ${suppressedIndustrial} industrial_heat suppressed`);
+    return {
+      imported,
+      duplicates,
+      suppressedIndustrial,
+      total: fires.length,
+      dataset,
+      dayRange
+    };
   } catch (error) {
     const detail = error.response?.data
       ? String(error.response.data).slice(0, 200)
@@ -61,6 +81,19 @@ async function run() {
     logger.error('FIRMS importer failed:', detail);
     throw error;
   }
+}
+
+async function loadIndustrialHeatBuckets() {
+  const rows = await eventRepository.listPersistentSourceBuckets('firms', {
+    lookbackDays: INDUSTRIAL_LOOKBACK_DAYS,
+    bucketPrecision: INDUSTRIAL_BUCKET_PRECISION,
+    minEvents: INDUSTRIAL_MIN_EVENTS,
+    minDistinctDays: INDUSTRIAL_MIN_DISTINCT_DAYS
+  });
+
+  return new Set(
+    rows.map((row) => buildBucketKey(row.lat_bucket, row.lon_bucket))
+  );
 }
 
 function parseFirmsCsv(csvData) {
@@ -127,6 +160,41 @@ function parseFirmsTimestamp(acqDate, acqTime) {
   const hour = time.slice(0, 2);
   const minute = time.slice(2, 4);
   return new Date(`${acqDate}T${hour}:${minute}:00Z`);
+}
+
+function isPersistentIndustrialHeat(fire, industrialHeatBuckets) {
+  return industrialHeatBuckets.has(buildBucketKey(fire.latitude, fire.longitude));
+}
+
+function isManualIndustrialHeat(fire) {
+  return MANUAL_INDUSTRIAL_HEAT_ZONES.some((zone) => {
+    const radiusKm = Number(zone.radiusKm) || 0;
+    if (!Number.isFinite(zone.lat) || !Number.isFinite(zone.lon) || radiusKm <= 0) {
+      return false;
+    }
+
+    return distanceKm(fire.latitude, fire.longitude, zone.lat, zone.lon) <= radiusKm;
+  });
+}
+
+function buildBucketKey(lat, lon) {
+  return `${Number(lat).toFixed(INDUSTRIAL_BUCKET_PRECISION)}:${Number(lon).toFixed(INDUSTRIAL_BUCKET_PRECISION)}`;
+}
+
+function distanceKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2)
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2))
+    * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function toRad(value) {
+  return value * (Math.PI / 180);
 }
 
 function toNullableNumber(value) {

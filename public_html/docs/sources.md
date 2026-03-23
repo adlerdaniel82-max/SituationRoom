@@ -66,6 +66,7 @@ Situation Dashboard aggregates data from multiple crisis monitoring sources. Eac
 - NASA MAP key in `FIRMS_API_KEY`
 - CSV area endpoint with key in URL path
 - Current importer uses `VIIRS_SNPP_NRT`, global bbox and `1` day range
+- Recurrent hotspots on nearly identical coordinates are suppressed as `industrial_heat` heuristics once enough history exists
 
 ---
 
@@ -74,6 +75,8 @@ Situation Dashboard aggregates data from multiple crisis monitoring sources. Eac
 **Type:** Conflict  
 **ID:** `acled`  
 **Default Interval:** 60 minutes
+
+**Default State:** disabled until API access is clarified
 
 **API:** https://acleddata.com/api/acled/read
 
@@ -118,7 +121,7 @@ Situation Dashboard aggregates data from multiple crisis monitoring sources. Eac
 **Notes:**
 - Current API access is bound to an approved `appname`, not a classic API key.
 - The importer currently uses `POST /v2/reports?appname=...` with `preset=latest` and `profile=list`.
-- If the `appname` is not approved, ReliefWeb returns `403` with an explicit approval hint.
+- The currently configured approved `appname` is `DAdler-schnueddelssituationroom2026-me509`.
 
 ---
 
@@ -126,14 +129,15 @@ Situation Dashboard aggregates data from multiple crisis monitoring sources. Eac
 
 **Type:** Aviation  
 **ID:** `opensky`  
-**Default Interval:** 5 minutes
+**Default Interval:** 1 minute
 
 **API:** https://opensky-network.org/api/states/all
 
 **Data:**
 - Aircraft positions
-- Low-altitude flights
-- Unusual flight patterns
+- Selected special-interest traffic only
+- No/unknown callsign aircraft
+- Category-filtered special classes from `extended=1`
 
 **Features:**
 - Filtered to selected special-interest traffic only

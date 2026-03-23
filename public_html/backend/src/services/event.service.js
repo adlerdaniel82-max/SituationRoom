@@ -127,12 +127,24 @@ function toGeoJson(events = []) {
         severity: event.severity,
         urgency: event.urgency,
         timestamp: event.timestamp,
+        description: getEventDescription(event),
         magnitude: event.magnitude,
         affectedPopulation: event.affectedPopulation,
         url: event.url
       }
     }))
   };
+}
+
+function getEventDescription(event) {
+  return (
+    event.description
+    || event.data?.description
+    || event.data?.details
+    || event.data?.event_desc
+    || event.data?.place
+    || ''
+  );
 }
 
 function parseJsonField(value) {

@@ -1,6 +1,7 @@
 const { getEnabledSources } = require('../config/sources');
 const logger = require('../utils/logger');
 const sourceRepository = require('../repositories/source.repository');
+const { getWebSocketServer } = require('./ws.service');
 
 const importers = {
   usgs: require('../importers/usgs.importer'),
@@ -30,8 +31,10 @@ async function runSource(sourceId) {
     logger.info(`Starting source runner: ${sourceId}`);
 
     await sourceRepository.updateRunState(sourceId, new Date(), 'running');
+    await broadcastSourceStatus(sourceId);
     const result = await importer.run();
     await sourceRepository.updateRunState(sourceId, new Date(), 'ok');
+    await broadcastSourceStatus(sourceId);
 
     runningJobs.delete(sourceId);
     logger.info(`Source runner completed: ${sourceId}`, result);
@@ -40,6 +43,7 @@ async function runSource(sourceId) {
   } catch (error) {
     runningJobs.delete(sourceId);
     await sourceRepository.updateRunState(sourceId, new Date(), `error: ${error.message}`.slice(0, 50));
+    await broadcastSourceStatus(sourceId);
     logger.error(`Source runner failed: ${sourceId}`, summarizeError(error));
     return { status: 'failed', error: error.message };
   }
@@ -73,6 +77,22 @@ function summarizeError(error) {
     status: error.response?.status,
     code: error.code
   };
+}
+
+async function broadcastSourceStatus(sourceId) {
+  const wsServer = getWebSocketServer();
+  if (!wsServer) {
+    return;
+  }
+
+  try {
+    const source = await sourceRepository.getHealthById(sourceId);
+    if (source) {
+      wsServer.sendSourceStatus(source);
+    }
+  } catch (error) {
+    logger.warn(`Unable to broadcast source status for ${sourceId}: ${error.message}`);
+  }
 }
 
 module.exports = { runSource, runAllEnabled, getRunningJobs, importers };

@@ -195,4 +195,49 @@ async function deleteOlderThan(days) {
   return result.affectedRows;
 }
 
-module.exports = { list, getById, getNearby, getByHash, getStats, create, update, deleteOlderThan };
+async function listPersistentSourceBuckets(source, options = {}) {
+  const {
+    lookbackDays = 21,
+    bucketPrecision = 2,
+    minEvents = 8,
+    minDistinctDays = 4
+  } = options;
+
+  const sql = `
+    SELECT
+      ROUND(lat, ?) AS lat_bucket,
+      ROUND(lon, ?) AS lon_bucket,
+      COUNT(*) AS hits,
+      COUNT(DISTINCT DATE(timestamp)) AS distinct_days
+    FROM events
+    WHERE source = ?
+      AND timestamp >= DATE_SUB(NOW(), INTERVAL ? DAY)
+    GROUP BY ROUND(lat, ?), ROUND(lon, ?)
+    HAVING COUNT(*) >= ?
+      AND COUNT(DISTINCT DATE(timestamp)) >= ?
+    ORDER BY distinct_days DESC, hits DESC
+  `;
+
+  return query(sql, [
+    bucketPrecision,
+    bucketPrecision,
+    source,
+    lookbackDays,
+    bucketPrecision,
+    bucketPrecision,
+    minEvents,
+    minDistinctDays
+  ]);
+}
+
+module.exports = {
+  list,
+  getById,
+  getNearby,
+  getByHash,
+  getStats,
+  create,
+  update,
+  deleteOlderThan,
+  listPersistentSourceBuckets
+};

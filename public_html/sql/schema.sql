@@ -39,7 +39,7 @@ CREATE TABLE sources (
   enabled TINYINT(1) DEFAULT 1,
   interval_seconds INT UNSIGNED DEFAULT 300,
   last_run DATETIME DEFAULT NULL,
-  last_status VARCHAR(50) DEFAULT NULL,
+  last_status VARCHAR(255) DEFAULT NULL,
   config JSON DEFAULT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -96,7 +96,11 @@ INSERT INTO sources (id, name, type, enabled, interval_seconds) VALUES
   ('usgs', 'USGS Earthquakes', 'earthquake', 1, 300),
   ('gdacs', 'GDACS Disasters', 'disaster', 1, 600),
   ('firms', 'FIRMS Fires', 'fire', 1, 600),
-  ('acled', 'ACLED Conflicts', 'conflict', 1, 3600),
+  ('acled', 'ACLED Conflicts', 'conflict', 0, 3600),
   ('reliefweb', 'ReliefWeb', 'humanitarian', 1, 1800),
   ('opensky', 'OpenSky Network', 'aviation', 1, 60)
-ON DUPLICATE KEY UPDATE name=VALUES(name);
+ON DUPLICATE KEY UPDATE
+  name = VALUES(name),
+  type = VALUES(type),
+  enabled = VALUES(enabled),
+  interval_seconds = VALUES(interval_seconds);

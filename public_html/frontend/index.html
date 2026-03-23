@@ -9,8 +9,11 @@
     content="Globale Lagekarte mit Live-Ereignissen, Clustern, Filtern und Quellenstatus."
   >
   <link rel="preconnect" href="https://unpkg.com">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
-  <link rel="stylesheet" href="./src/styles/app.css?v=20260322g">
+  <link rel="stylesheet" href="./src/styles/app.css?v=20260323d">
 </head>
 <body>
   <div class="app-shell">
@@ -28,25 +31,26 @@
 
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-header">
-        <div>
-          <p class="eyebrow">Situation Room</p>
-          <h1>World Incident Map</h1>
+        <div class="sidebar-header__copy">
+          <p class="brand-mark">Situation Room</p>
+          <h1>Situation Room</h1>
+          <p class="sidebar-intro">Globale Lagekarte für Katastrophen, humanitäre Signale und ausgewählte Luftbewegungen in einer laufenden Einsatzansicht.</p>
         </div>
         <button id="sidebar-close" class="icon-button" type="button" aria-label="Panel schließen">
           ×
         </button>
       </div>
 
-      <section class="sidebar-section">
+      <section class="sidebar-section sidebar-section--hero">
         <div class="section-header">
-          <h2>Live Lage</h2>
+          <h2>Lagebild</h2>
           <button id="refresh-button" class="text-button" type="button">Aktualisieren</button>
         </div>
         <div id="status-badge" class="status-badge">Initialisiere …</div>
         <div id="stats-grid" class="stats-grid"></div>
       </section>
 
-      <section class="sidebar-section">
+      <section class="sidebar-section sidebar-section--minimal">
         <div class="section-header">
           <h2>Filter</h2>
           <button id="reset-filters" class="text-button" type="button">Zurücksetzen</button>
@@ -54,7 +58,7 @@
         <div id="filter-groups" class="filter-groups"></div>
       </section>
 
-      <section class="sidebar-section sidebar-section--grow">
+      <section class="sidebar-section sidebar-section--grow sidebar-section--minimal">
         <div class="section-header">
           <h2>Ereignisse</h2>
           <span id="event-count" class="section-meta">0</span>
@@ -62,11 +66,21 @@
         <div id="event-list" class="event-list"></div>
       </section>
 
-      <section class="sidebar-section">
+      <section class="sidebar-section sidebar-section--minimal">
         <div class="section-header">
           <h2>Quellen</h2>
         </div>
         <div id="sources-list" class="sources-list"></div>
+      </section>
+
+      <section class="sidebar-section sidebar-section--minimal">
+        <div class="section-header">
+          <h2>Rechtliches</h2>
+        </div>
+        <div class="sidebar-legal-links">
+          <button id="legal-impressum" class="text-button legal-link-button" type="button">Impressum</button>
+          <button id="legal-privacy" class="text-button legal-link-button" type="button">Datenschutz</button>
+        </div>
       </section>
     </aside>
 
@@ -74,6 +88,6 @@
   </div>
 
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script type="module" src="./src/main.js?v=20260322g"></script>
+  <script type="module" src="./src/main.js?v=20260323d"></script>
 </body>
 </html>

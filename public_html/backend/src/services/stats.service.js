@@ -5,6 +5,10 @@ async function getOverview() {
   return eventRepository.getStats();
 }
 
+async function getSummary() {
+  return getOverview();
+}
+
 async function getByType() {
   const sql = `
     SELECT 
@@ -71,4 +75,40 @@ async function getTimeline(interval = 'hour') {
   return query(sql);
 }
 
-module.exports = { getOverview, getByType, getBySource, getTimeline };
+async function getHotRegions({ hours = 24, limit = 12 } = {}) {
+  const safeHours = Math.max(1, Math.min(Number(hours) || 24, 168));
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 12, 50));
+
+  const sql = `
+    SELECT
+      ROUND(lat / 5) * 5 AS lat_bucket,
+      ROUND(lon / 5) * 5 AS lon_bucket,
+      COUNT(*) AS event_count,
+      AVG(score) AS avg_score,
+      MAX(score) AS max_score,
+      COUNT(DISTINCT type) AS type_count,
+      COUNT(DISTINCT source) AS source_count,
+      MAX(timestamp) AS latest_event
+    FROM events
+    WHERE timestamp >= DATE_SUB(NOW(), INTERVAL ? HOUR)
+    GROUP BY ROUND(lat / 5), ROUND(lon / 5)
+    HAVING event_count > 0
+    ORDER BY max_score DESC, event_count DESC, latest_event DESC
+    LIMIT ?
+  `;
+
+  const rows = await query(sql, [safeHours, safeLimit]);
+  return rows.map((row) => ({
+    ...row,
+    lat: Number(row.lat_bucket),
+    lon: Number(row.lon_bucket),
+    label: `${Number(row.lat_bucket).toFixed(0)}, ${Number(row.lon_bucket).toFixed(0)}`,
+    event_count: Number(row.event_count),
+    avg_score: Number(row.avg_score || 0),
+    max_score: Number(row.max_score || 0),
+    type_count: Number(row.type_count),
+    source_count: Number(row.source_count)
+  }));
+}
+
+module.exports = { getOverview, getSummary, getByType, getBySource, getTimeline, getHotRegions };

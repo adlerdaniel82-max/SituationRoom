@@ -34,19 +34,90 @@ const SOURCE_OPTIONS = [
   { value: 'reliefweb', label: 'ReliefWeb' },
   { value: 'opensky', label: 'OpenSky' }
 ];
+const SOURCE_MARKER_STYLES = {
+  usgs: { shape: 'circle', fill: '#f26b38', stroke: '#fff5ea' },
+  gdacs: { shape: 'diamond', fill: '#d8a34a', stroke: '#fff4de' },
+  firms: { shape: 'triangle', fill: '#c7392f', stroke: '#ffe5e2' },
+  acled: { shape: 'hexagon', fill: '#6f2f8f', stroke: '#f4e1ff' },
+  reliefweb: { shape: 'square', fill: '#2e8a72', stroke: '#ddfff5' },
+  opensky: { shape: 'cross', fill: '#2a6fd6', stroke: '#e5efff' },
+  default: { shape: 'circle', fill: '#7b8794', stroke: '#f3f4f6' }
+};
+const LEGAL_CONTENT = {
+  impressum: {
+    title: 'Impressum',
+    eyebrow: 'Rechtliches',
+    sourceUrl: 'https://schnueddels.de/impressum.php',
+    html: `
+      <section>
+        <h3>Angaben gemäß § 5 TMG</h3>
+        <p>Daniel Adler<br>Rembrandtring 14<br>63110 Rodgau<br>Deutschland</p>
+      </section>
+      <section>
+        <h3>Kontakt</h3>
+        <p>Siehe Originalseite auf schnueddels.de.</p>
+      </section>
+      <section>
+        <h3>Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV</h3>
+        <p>Daniel Adler<br>Rembrandtring 14<br>63110 Rodgau</p>
+      </section>
+      <section>
+        <h3>Haftung für Inhalte</h3>
+        <p>Als Diensteanbieter sind wir gemäß § 7 Abs. 1 TMG für eigene Inhalte auf diesen Seiten nach den allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 TMG sind wir jedoch nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen.</p>
+      </section>
+      <section>
+        <h3>Haftung für Links</h3>
+        <p>Diese Website enthält gegebenenfalls Links zu externen Websites Dritter, auf deren Inhalte kein Einfluss besteht. Für diese fremden Inhalte wird keine Gewähr übernommen.</p>
+      </section>
+    `
+  },
+  privacy: {
+    title: 'Datenschutzerklärung',
+    eyebrow: 'Rechtliches',
+    sourceUrl: 'https://schnueddels.de/datenschutz.php',
+    html: `
+      <section>
+        <h3>Datenschutz auf einen Blick</h3>
+        <p>Die Datenschutzerklärung von schnueddels.de beschreibt die Verarbeitung personenbezogener Daten bei der Nutzung der Website und ihrer Dienste.</p>
+      </section>
+      <section>
+        <h3>Verantwortliche Stelle</h3>
+        <p>Verantwortliche Stelle ist laut Originalseite Daniel Adler, Rembrandtring 14, 63110 Rodgau, Deutschland.</p>
+      </section>
+      <section>
+        <h3>Erhobene Daten</h3>
+        <p>Je nach Nutzung können Server-Logdaten, technische Zugriffsdaten und bei Formular- oder Account-Nutzung weitere personenbezogene Angaben verarbeitet werden.</p>
+      </section>
+      <section>
+        <h3>Rechte der betroffenen Personen</h3>
+        <ul>
+          <li>Auskunft über gespeicherte Daten</li>
+          <li>Berichtigung unrichtiger Daten</li>
+          <li>Löschung oder Einschränkung der Verarbeitung</li>
+          <li>Widerspruch gegen die Verarbeitung</li>
+        </ul>
+      </section>
+      <section>
+        <h3>Vollständige Fassung</h3>
+        <p>Für die vollständige, rechtsverbindliche Datenschutzerklärung siehe die Originalseite auf schnueddels.de.</p>
+      </section>
+    `
+  }
+};
 
-const FILTER_STORAGE_KEY = 'situation-room.filters.v1';
+const FILTER_STORAGE_KEY = 'situation-room.filters.v2';
+const LEGACY_FILTER_STORAGE_KEY = 'situation-room.filters.v1';
 const EMPTY_FILTER_SENTINEL = '__none__';
+const EVENT_RESPONSE_FORMAT = 'geojson';
 const DEFAULT_SOURCE_FILTERS = new Set(
-  SOURCE_OPTIONS
-    .filter((entry) => entry.value !== 'reliefweb')
-    .map((entry) => entry.value)
+  SOURCE_OPTIONS.map((entry) => entry.value)
 );
 const persistedFilters = loadStoredFilters();
 
 const state = {
   map: null,
   events: [],
+  eventFeatureCollection: emptyFeatureCollection(),
   sources: [],
   filters: {
     types: new Set(filterPersistedValues(persistedFilters?.types, TYPE_OPTIONS.map((entry) => entry.value)) || TYPE_OPTIONS.map((entry) => entry.value)),
@@ -69,6 +140,8 @@ const nodes = {
   sidebarClose: document.getElementById('sidebar-close'),
   refreshButton: document.getElementById('refresh-button'),
   resetFilters: document.getElementById('reset-filters'),
+  legalImpressum: document.getElementById('legal-impressum'),
+  legalPrivacy: document.getElementById('legal-privacy'),
   statsGrid: document.getElementById('stats-grid'),
   filterGroups: document.getElementById('filter-groups'),
   eventCount: document.getElementById('event-count'),
@@ -84,7 +157,6 @@ async function init() {
   bindUi();
   syncSidebarToggle();
   await loadSources();
-  renderFilterGroups();
   initMap();
   await loadStats();
   connectWebSocket();
@@ -95,6 +167,8 @@ function bindUi() {
   nodes.sidebarClose.addEventListener('click', closeSidebar);
   nodes.refreshButton.addEventListener('click', () => scheduleViewportRefresh(0));
   nodes.resetFilters.addEventListener('click', resetFilters);
+  nodes.legalImpressum.addEventListener('click', () => openLegalPanel('impressum'));
+  nodes.legalPrivacy.addEventListener('click', () => openLegalPanel('privacy'));
 
   window.addEventListener('resize', () => {
     if (state.map) {
@@ -118,6 +192,7 @@ function initMap() {
   state.map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 
   state.map.on('load', async () => {
+    registerSourceMarkerImages();
     installMapLayers();
     wireMapInteractions();
     await loadViewportData();
@@ -172,33 +247,32 @@ function installMapLayers() {
 
   state.map.addLayer({
     id: 'event-points',
-    type: 'circle',
+    type: 'symbol',
     source: 'events',
     filter: ['!', ['has', 'point_count']],
-    paint: {
-      'circle-color': [
+    layout: {
+      'icon-image': [
         'match',
-        ['get', 'type'],
-        'earthquake', '#f26b38',
-        'disaster', '#e1a63c',
-        'fire', '#c7392f',
-        'conflict', '#6f2f8f',
-        'humanitarian', '#2e8a72',
-        'aviation', '#2a6fd6',
-        '#7b8794'
+        ['get', 'source'],
+        'usgs', 'source-marker-usgs',
+        'gdacs', 'source-marker-gdacs',
+        'firms', 'source-marker-firms',
+        'acled', 'source-marker-acled',
+        'reliefweb', 'source-marker-reliefweb',
+        'opensky', 'source-marker-opensky',
+        'source-marker-default'
       ],
-      'circle-radius': [
+      'icon-size': [
         'interpolate',
         ['linear'],
         ['coalesce', ['to-number', ['get', 'score']], 0],
-        0, 5,
-        0.4, 8,
-        0.7, 12,
-        1, 16
+        0, 0.48,
+        0.4, 0.62,
+        0.7, 0.76,
+        1, 0.92
       ],
-      'circle-opacity': 0.9,
-      'circle-stroke-width': 2,
-      'circle-stroke-color': '#f8f2e7'
+      'icon-allow-overlap': true,
+      'icon-ignore-placement': true
     }
   });
 
@@ -224,6 +298,92 @@ function installMapLayers() {
       'circle-stroke-width': 2
     }
   });
+}
+
+function registerSourceMarkerImages() {
+  Object.entries(SOURCE_MARKER_STYLES).forEach(([sourceId, style]) => {
+    const imageName = `source-marker-${sourceId}`;
+    if (!state.map.hasImage(imageName)) {
+      state.map.addImage(imageName, createSourceMarkerImage(style), { pixelRatio: 2 });
+    }
+  });
+}
+
+function createSourceMarkerImage(style) {
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext('2d');
+
+  context.clearRect(0, 0, size, size);
+  context.translate(size / 2, size / 2);
+  context.lineJoin = 'round';
+  context.lineCap = 'round';
+  context.fillStyle = style.fill;
+  context.strokeStyle = style.stroke;
+  context.lineWidth = 5;
+
+  drawMarkerShape(context, style.shape);
+  context.fill();
+  context.stroke();
+
+  context.fillStyle = 'rgba(255, 255, 255, 0.18)';
+  context.beginPath();
+  context.arc(0, 0, 5, 0, Math.PI * 2);
+  context.fill();
+
+  return context.getImageData(0, 0, size, size);
+}
+
+function drawMarkerShape(context, shape) {
+  context.beginPath();
+
+  switch (shape) {
+    case 'diamond':
+      context.moveTo(0, -16);
+      context.lineTo(16, 0);
+      context.lineTo(0, 16);
+      context.lineTo(-16, 0);
+      context.closePath();
+      return;
+    case 'triangle':
+      context.moveTo(0, -18);
+      context.lineTo(17, 14);
+      context.lineTo(-17, 14);
+      context.closePath();
+      return;
+    case 'square':
+      context.rect(-14, -14, 28, 28);
+      return;
+    case 'hexagon':
+      context.moveTo(0, -17);
+      context.lineTo(15, -8);
+      context.lineTo(15, 8);
+      context.lineTo(0, 17);
+      context.lineTo(-15, 8);
+      context.lineTo(-15, -8);
+      context.closePath();
+      return;
+    case 'cross':
+      context.moveTo(-6, -18);
+      context.lineTo(6, -18);
+      context.lineTo(6, -6);
+      context.lineTo(18, -6);
+      context.lineTo(18, 6);
+      context.lineTo(6, 6);
+      context.lineTo(6, 18);
+      context.lineTo(-6, 18);
+      context.lineTo(-6, 6);
+      context.lineTo(-18, 6);
+      context.lineTo(-18, -6);
+      context.lineTo(-6, -6);
+      context.closePath();
+      return;
+    case 'circle':
+    default:
+      context.arc(0, 0, 15, 0, Math.PI * 2);
+  }
 }
 
 function wireMapInteractions() {
@@ -276,13 +436,16 @@ async function loadViewportData() {
 
   try {
     const params = buildEventQuery();
-    const events = await fetchJson(`/api/events?${params.toString()}`);
+    params.set('format', EVENT_RESPONSE_FORMAT);
+    const payload = await fetchJson(`/api/events?${params.toString()}`);
 
     if (token !== state.loadToken) {
       return;
     }
 
-    state.events = events.map(normalizeEvent);
+    const normalized = normalizeEventPayload(payload);
+    state.events = normalized.events;
+    state.eventFeatureCollection = normalized.featureCollection;
     updateMapData();
     renderEventList();
     syncSelection();
@@ -311,6 +474,7 @@ async function loadSources() {
     reconcileSourceFilters();
     saveStoredFilters();
     renderSources();
+    renderFilterGroups();
   } catch (error) {
     console.error('Failed to load sources:', error);
     nodes.sourcesList.innerHTML = '<div class="empty-state">Quellenstatus nicht verfügbar.</div>';
@@ -368,21 +532,7 @@ function updateMapData() {
   }
 
   source.setData({
-    type: 'FeatureCollection',
-    features: state.events.map((event) => ({
-      type: 'Feature',
-      geometry: {
-        type: 'Point',
-        coordinates: [event.lon, event.lat]
-      },
-      properties: {
-        id: event.id,
-        title: event.title,
-        type: event.type,
-        source: event.source,
-        score: event.score
-      }
-    }))
+    ...state.eventFeatureCollection
   });
 }
 
@@ -560,6 +710,36 @@ function renderSources() {
     .join('');
 }
 
+function openLegalPanel(kind) {
+  const content = LEGAL_CONTENT[kind];
+  if (!content) {
+    return;
+  }
+
+  state.selectedEventId = null;
+  renderEventList();
+  nodes.detailPanel.classList.add('detail-panel--open');
+  nodes.detailPanel.innerHTML = `
+    <div class="detail-panel__inner">
+      <div class="detail-panel__header">
+        <div class="detail-panel__heading">
+          <p class="eyebrow">${content.eyebrow}</p>
+          <h2>${content.title}</h2>
+        </div>
+        <button id="detail-close" class="icon-button icon-button--compact detail-panel__close" type="button" aria-label="Detailansicht schließen">×</button>
+      </div>
+      <div class="detail-legal">
+        ${content.html}
+      </div>
+      <div class="detail-actions">
+        <a class="secondary-button detail-action-button" href="${content.sourceUrl}" target="_blank" rel="noopener">Originalseite öffnen</a>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('detail-close')?.addEventListener('click', clearSelection);
+}
+
 function reconcileSourceFilters() {
   const enabledSources = new Set(
     state.sources
@@ -591,11 +771,21 @@ function getDefaultSourceFilters(enabledSources = null) {
 function loadStoredFilters() {
   try {
     const raw = window.localStorage.getItem(FILTER_STORAGE_KEY);
-    if (!raw) {
+    if (raw) {
+      return JSON.parse(raw);
+    }
+
+    const legacyRaw = window.localStorage.getItem(LEGACY_FILTER_STORAGE_KEY);
+    if (!legacyRaw) {
       return null;
     }
 
-    return JSON.parse(raw);
+    const legacyFilters = JSON.parse(legacyRaw);
+    if (Array.isArray(legacyFilters?.sources) && !legacyFilters.sources.includes('reliefweb')) {
+      legacyFilters.sources = [...legacyFilters.sources, 'reliefweb'];
+    }
+
+    return legacyFilters;
   } catch {
     return null;
   }
@@ -782,13 +972,18 @@ function connectWebSocket() {
   state.ws.addEventListener('open', () => {
     state.reconnectDelay = 1000;
     setStatus('Live verbunden', 'live');
-    state.ws.send(JSON.stringify({ type: 'subscribe', payload: { channels: ['events', 'stats'] } }));
+    state.ws.send(JSON.stringify({ type: 'subscribe', payload: { channels: ['events', 'stats', 'sources'] } }));
   });
 
   state.ws.addEventListener('message', (event) => {
     try {
       const message = JSON.parse(event.data);
-      if (['event:new', 'event:update', 'stats:update'].includes(message.type)) {
+      if (message.type === 'source.status') {
+        loadSources();
+        return;
+      }
+
+      if (['event:new', 'event:update', 'event.created', 'event.updated', 'stats:update'].includes(message.type)) {
         scheduleViewportRefresh(400);
       }
     } catch (error) {
@@ -835,6 +1030,79 @@ function normalizeEvent(event) {
     score: Number(event.score || 0),
     magnitude: event.magnitude === null || event.magnitude === undefined ? null : Number(event.magnitude),
     description: String(description || '').trim()
+  };
+}
+
+function normalizeEventPayload(payload) {
+  if (payload?.type === 'FeatureCollection' && Array.isArray(payload.features)) {
+    return {
+      events: payload.features.map(normalizeGeoJsonFeature).filter(Boolean),
+      featureCollection: {
+        type: 'FeatureCollection',
+        features: payload.features
+          .map(normalizeMapFeature)
+          .filter(Boolean)
+      }
+    };
+  }
+
+  const events = Array.isArray(payload) ? payload.map(normalizeEvent).filter(Boolean) : [];
+  return {
+    events,
+    featureCollection: {
+      type: 'FeatureCollection',
+      features: events.map(eventToFeature)
+    }
+  };
+}
+
+function normalizeGeoJsonFeature(feature) {
+  const properties = feature?.properties || {};
+  const coordinates = feature?.geometry?.coordinates;
+
+  if (!Array.isArray(coordinates) || coordinates.length < 2) {
+    return null;
+  }
+
+  return normalizeEvent({
+    id: properties.id,
+    title: properties.title,
+    type: properties.type,
+    source: properties.source,
+    lat: coordinates[1],
+    lon: coordinates[0],
+    score: properties.score,
+    timestamp: properties.timestamp,
+    magnitude: properties.magnitude,
+    url: properties.url,
+    description: properties.description,
+    affectedPopulation: properties.affectedPopulation
+  });
+}
+
+function normalizeMapFeature(feature) {
+  const event = normalizeGeoJsonFeature(feature);
+  if (!event) {
+    return null;
+  }
+
+  return eventToFeature(event);
+}
+
+function eventToFeature(event) {
+  return {
+    type: 'Feature',
+    geometry: {
+      type: 'Point',
+      coordinates: [event.lon, event.lat]
+    },
+    properties: {
+      id: event.id,
+      title: event.title,
+      type: event.type,
+      source: event.source,
+      score: event.score
+    }
   };
 }
 

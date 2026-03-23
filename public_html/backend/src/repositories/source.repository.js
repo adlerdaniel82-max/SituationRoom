@@ -64,4 +64,13 @@ async function getHealth() {
   }
 }
 
-module.exports = { list, getById, update, updateLastRun, updateRunState, getEnabled, getHealth };
+async function getHealthById(id) {
+  try {
+    const rows = await query('SELECT * FROM source_health WHERE id = ?', [id]);
+    return rows[0] || null;
+  } catch {
+    return getById(id);
+  }
+}
+
+module.exports = { list, getById, update, updateLastRun, updateRunState, getEnabled, getHealth, getHealthById };
