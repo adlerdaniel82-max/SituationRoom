@@ -1,4 +1,5 @@
 const WebSocket = require('ws');
+const { query } = require('../config/db');
 const logger = require('../utils/logger');
 const sourceRepository = require('../repositories/source.repository');
 
@@ -6,6 +7,11 @@ let wss;
 let activeServer = null;
 const clients = new Set();
 const sourceStatusSnapshot = new Map();
+let statsSignature = null;
+let eventCursor = {
+  createdAt: null,
+  updatedAt: null
+};
 const SOURCE_STATUS_POLL_MS = 5000;
 
 class WebSocketServer {
@@ -49,9 +55,9 @@ class WebSocketServer {
     if (this.sourceStatusTimer) {
       clearInterval(this.sourceStatusTimer);
     }
-    this.captureInitialSourceStatusSnapshot();
+    this.captureInitialWatcherSnapshot();
     this.sourceStatusTimer = setInterval(() => {
-      this.pollSourceStatusChanges();
+      this.pollRealtimeChanges();
     }, SOURCE_STATUS_POLL_MS);
 
     if (typeof this.sourceStatusTimer.unref === 'function') {
@@ -105,33 +111,129 @@ class WebSocketServer {
     this.broadcast('source.status', status, 'sources');
   }
 
-  async captureInitialSourceStatusSnapshot() {
+  async captureInitialWatcherSnapshot() {
     try {
-      const sources = await sourceRepository.getHealth();
-      for (const source of sources) {
-        sourceStatusSnapshot.set(source.id, buildStatusSignature(source));
-      }
+      await Promise.all([
+        this.captureInitialSourceStatusSnapshot(),
+        this.captureInitialEventCursor(),
+        this.captureInitialStatsSnapshot()
+      ]);
     } catch (error) {
-      logger.warn(`Unable to initialize source status watcher: ${error.message}`);
+      logger.warn(`Unable to initialize realtime watcher: ${error.message}`);
     }
   }
 
-  async pollSourceStatusChanges() {
+  async captureInitialSourceStatusSnapshot() {
+    const sources = await sourceRepository.getHealth();
+    for (const source of sources) {
+      sourceStatusSnapshot.set(source.id, buildStatusSignature(source));
+    }
+  }
+
+  async captureInitialEventCursor() {
+    const rows = await query(`
+      SELECT
+        MAX(created_at) AS max_created_at,
+        MAX(updated_at) AS max_updated_at
+      FROM events
+    `);
+
+    eventCursor = {
+      createdAt: rows[0]?.max_created_at || null,
+      updatedAt: rows[0]?.max_updated_at || null
+    };
+  }
+
+  async captureInitialStatsSnapshot() {
+    const rows = await query(`
+      SELECT 
+        COUNT(*) as total,
+        COUNT(CASE WHEN score >= 0.8 THEN 1 END) as critical,
+        COUNT(CASE WHEN score >= 0.6 AND score < 0.8 THEN 1 END) as high,
+        COUNT(CASE WHEN score >= 0.4 AND score < 0.6 THEN 1 END) as medium,
+        COUNT(CASE WHEN score < 0.4 THEN 1 END) as low
+      FROM events
+    `);
+
+    statsSignature = JSON.stringify(rows[0] || {});
+  }
+
+  async pollRealtimeChanges() {
     if (clients.size === 0) {
       return;
     }
 
     try {
-      const sources = await sourceRepository.getHealth();
-      for (const source of sources) {
-        const signature = buildStatusSignature(source);
-        if (sourceStatusSnapshot.get(source.id) !== signature) {
-          sourceStatusSnapshot.set(source.id, signature);
-          this.sendSourceStatus(source);
-        }
-      }
+      await Promise.all([
+        this.pollSourceStatusChanges(),
+        this.pollEventChanges(),
+        this.pollStatsChanges()
+      ]);
     } catch (error) {
-      logger.warn(`Unable to poll source status changes: ${error.message}`);
+      logger.warn(`Unable to poll realtime changes: ${error.message}`);
+    }
+  }
+
+  async pollSourceStatusChanges() {
+    const sources = await sourceRepository.getHealth();
+    for (const source of sources) {
+      const signature = buildStatusSignature(source);
+      if (sourceStatusSnapshot.get(source.id) !== signature) {
+        sourceStatusSnapshot.set(source.id, signature);
+        this.sendSourceStatus(source);
+      }
+    }
+  }
+
+  async pollEventChanges() {
+    const createdEvents = await query(`
+      SELECT * FROM events
+      WHERE created_at > COALESCE(?, '1970-01-01 00:00:00')
+      ORDER BY created_at ASC
+      LIMIT 250
+    `, [eventCursor.createdAt]);
+
+    for (const event of createdEvents) {
+      this.sendEvent(normalizeRealtimeEvent(event));
+    }
+
+    if (createdEvents.length > 0) {
+      eventCursor.createdAt = createdEvents[createdEvents.length - 1].created_at;
+    }
+
+    const updatedEvents = await query(`
+      SELECT * FROM events
+      WHERE updated_at > COALESCE(?, '1970-01-01 00:00:00')
+        AND updated_at > created_at
+      ORDER BY updated_at ASC
+      LIMIT 250
+    `, [eventCursor.updatedAt]);
+
+    for (const event of updatedEvents) {
+      this.sendUpdate(normalizeRealtimeEvent(event));
+    }
+
+    if (updatedEvents.length > 0) {
+      eventCursor.updatedAt = updatedEvents[updatedEvents.length - 1].updated_at;
+    }
+  }
+
+  async pollStatsChanges() {
+    const rows = await query(`
+      SELECT 
+        COUNT(*) as total,
+        COUNT(CASE WHEN score >= 0.8 THEN 1 END) as critical,
+        COUNT(CASE WHEN score >= 0.6 AND score < 0.8 THEN 1 END) as high,
+        COUNT(CASE WHEN score >= 0.4 AND score < 0.6 THEN 1 END) as medium,
+        COUNT(CASE WHEN score < 0.4 THEN 1 END) as low
+      FROM events
+    `);
+
+    const currentStats = rows[0] || {};
+    const signature = JSON.stringify(currentStats);
+    if (signature !== statsSignature) {
+      statsSignature = signature;
+      this.sendStats(currentStats);
     }
   }
 
@@ -154,6 +256,32 @@ function buildStatusSignature(source) {
     minutes_since_run: source.minutes_since_run,
     events_last_24h: source.events_last_24h
   });
+}
+
+function normalizeRealtimeEvent(event) {
+  return {
+    ...event,
+    id: Number(event.id),
+    lat: Number(event.lat),
+    lon: Number(event.lon),
+    magnitude: event.magnitude === null || event.magnitude === undefined ? null : Number(event.magnitude),
+    depth: event.depth === null || event.depth === undefined ? null : Number(event.depth),
+    score: Number(event.score || 0),
+    affectedPopulation: event.affected_population ?? null,
+    data: parseJsonField(event.data)
+  };
+}
+
+function parseJsonField(value) {
+  if (!value || typeof value !== 'string') {
+    return value || null;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
 }
 
 module.exports = { WebSocketServer, getWebSocketServer };

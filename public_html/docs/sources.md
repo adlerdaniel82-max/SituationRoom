@@ -2,7 +2,11 @@
 
 ## Overview
 
-Situation Dashboard aggregates data from multiple crisis monitoring sources. Each source is managed by a dedicated importer module.
+Situation Room aggregates data from multiple crisis monitoring sources. Each source is managed by a dedicated importer module.
+
+Current bootstrap files:
+- `public_html/sql/schema.sql` creates tables and inserts the current default source definitions
+- `public_html/sql/seed_sources.sql` can be rerun idempotently to realign names, intervals, enabled flags and JSON config
 
 ## Sources
 
@@ -44,6 +48,30 @@ Situation Dashboard aggregates data from multiple crisis monitoring sources. Eac
 - Alert levels (green, orange, red)
 
 **Format:** RSS/XML feed
+
+---
+
+### NOAA Tsunami
+
+**Type:** Tsunami  
+**ID:** `noaa_tsunami`  
+**Default Interval:** 5 minutes
+
+**API / Feed:**
+- https://www.tsunami.gov/events/xml/PAAQAtom.xml
+- https://www.tsunami.gov/events/xml/PHEBAtom.xml
+
+**Data:**
+- Tsunami information statements
+- Warning center bulletins
+- Preliminary magnitude, coordinates and affected region
+
+**Format:** Atom feed with links to CAP and bulletin text
+
+**Notes:**
+- Current importer reads the official `tsunami.gov` Atom feeds for NTWC and PTWC.
+- Event type is normalized to `tsunami`.
+- Source IDs and bulletin links are preserved in raw event data for later enrichment.
 
 ---
 
@@ -131,6 +159,8 @@ Situation Dashboard aggregates data from multiple crisis monitoring sources. Eac
 **ID:** `opensky`  
 **Default Interval:** 1 minute
 
+**Default State:** enabled
+
 **API:** https://opensky-network.org/api/states/all
 
 **Data:**
@@ -217,3 +247,9 @@ curl http://localhost:3001/api/sources/status
 ```
 
 View `source_health` database view for detailed status.
+
+## Runtime Notes
+
+- Frontend source filters are persisted locally in the browser.
+- WebSocket clients now receive `event.created`, `event.updated`, `stats:update` and `source.status`.
+- The basemap can use MapTiler `dataviz-v4-dark` with German labels when `MAPTILER_API_KEY` is present in `private/.env`.

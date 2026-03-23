@@ -49,15 +49,6 @@
           <div id="stats-grid" class="stats-grid"></div>
         </section>
 
-        <section class="sidebar-section sidebar-section--legal">
-          <div class="section-header">
-            <h2>Rechtliches</h2>
-          </div>
-          <div class="sidebar-legal-links">
-            <button id="legal-impressum" class="text-button legal-link-button" type="button">Impressum</button>
-            <button id="legal-privacy" class="text-button legal-link-button" type="button">Datenschutz</button>
-          </div>
-        </section>
       </aside>
 
       <main class="center-stage">
@@ -116,10 +107,22 @@
       </section>
     </section>
 
+    <footer class="app-footer">
+      <div class="app-footer__brand">
+        <span>Situation Room</span>
+        <small>Operative Lageansicht</small>
+      </div>
+      <div class="app-footer__links">
+        <button id="legal-impressum" class="text-button legal-link-button" type="button">Impressum</button>
+        <button id="legal-privacy" class="text-button legal-link-button" type="button">Datenschutz</button>
+      </div>
+    </footer>
+
+    <div id="detail-backdrop" class="detail-backdrop" hidden></div>
     <aside id="detail-panel" class="detail-panel" aria-live="polite"></aside>
   </div>
 
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script type="module" src="./src/main.js?v=20260323k"></script>
+  <script type="module" src="./src/main.js?v=20260323l"></script>
 </body>
 </html>

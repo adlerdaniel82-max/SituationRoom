@@ -26,6 +26,7 @@ const IMPORTANT_EVENT_SCORE_THRESHOLD = 0.5;
 
 const TYPE_OPTIONS = [
   { value: 'earthquake', label: 'Erdbeben' },
+  { value: 'tsunami', label: 'Tsunami' },
   { value: 'disaster', label: 'Katastrophen' },
   { value: 'fire', label: 'Brände' },
   { value: 'conflict', label: 'Konflikte' },
@@ -36,6 +37,7 @@ const TYPE_OPTIONS = [
 const SOURCE_OPTIONS = [
   { value: 'usgs', label: 'USGS' },
   { value: 'gdacs', label: 'GDACS' },
+  { value: 'noaa_tsunami', label: 'NOAA Tsunami' },
   { value: 'firms', label: 'FIRMS' },
   { value: 'acled', label: 'ACLED' },
   { value: 'reliefweb', label: 'ReliefWeb' },
@@ -44,6 +46,7 @@ const SOURCE_OPTIONS = [
 const SOURCE_MARKER_STYLES = {
   usgs: { shape: 'circle', fill: '#f26b38', stroke: '#fff5ea' },
   gdacs: { shape: 'diamond', fill: '#d8a34a', stroke: '#fff4de' },
+  noaa_tsunami: { shape: 'circle', fill: '#4fa8ff', stroke: '#e4f4ff' },
   firms: { shape: 'triangle', fill: '#c7392f', stroke: '#ffe5e2' },
   acled: { shape: 'hexagon', fill: '#6f2f8f', stroke: '#f4e1ff' },
   reliefweb: { shape: 'square', fill: '#2e8a72', stroke: '#ddfff5' },
@@ -160,6 +163,7 @@ const nodes = {
   eventList: document.getElementById('event-list'),
   sourcesList: document.getElementById('sources-list'),
   marketsGrid: document.getElementById('markets-grid'),
+  detailBackdrop: document.getElementById('detail-backdrop'),
   detailPanel: document.getElementById('detail-panel'),
   statusBadge: document.getElementById('status-badge')
 };
@@ -186,6 +190,7 @@ function bindUi() {
   nodes.sourcesCollapseToggle.addEventListener('click', toggleSourcesPanel);
   nodes.legalImpressum.addEventListener('click', () => openLegalPanel('impressum'));
   nodes.legalPrivacy.addEventListener('click', () => openLegalPanel('privacy'));
+  nodes.detailBackdrop.addEventListener('click', clearSelection);
 
   window.addEventListener('resize', () => {
     if (window.innerWidth > 980 && !state.sidebarOpen) {
@@ -193,6 +198,12 @@ function bindUi() {
     }
     if (state.map) {
       state.map.resize();
+    }
+  });
+
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && nodes.detailPanel.classList.contains('detail-panel--open')) {
+      clearSelection();
     }
   });
 
@@ -346,6 +357,7 @@ function installMapLayers() {
         ['get', 'source'],
         'usgs', 'source-marker-usgs',
         'gdacs', 'source-marker-gdacs',
+        'noaa_tsunami', 'source-marker-noaa_tsunami',
         'firms', 'source-marker-firms',
         'acled', 'source-marker-acled',
         'reliefweb', 'source-marker-reliefweb',
@@ -856,8 +868,7 @@ function openLegalPanel(kind) {
 
   state.selectedEventId = null;
   renderEventList();
-  nodes.detailPanel.classList.add('detail-panel--open');
-  nodes.detailPanel.innerHTML = `
+  openDetailPanel(`
     <div class="detail-panel__inner">
       <div class="detail-panel__header">
         <div class="detail-panel__heading">
@@ -873,6 +884,15 @@ function openLegalPanel(kind) {
         <a class="secondary-button detail-action-button" href="${content.sourceUrl}" target="_blank" rel="noopener">Originalseite öffnen</a>
       </div>
     </div>
+  `);
+}
+
+function openDetailPanel(markup) {
+  nodes.detailBackdrop.hidden = false;
+  nodes.detailBackdrop.classList.add('detail-backdrop--open');
+  nodes.detailPanel.classList.add('detail-panel--open');
+  nodes.detailPanel.innerHTML = `
+    ${markup}
   `;
 
   document.getElementById('detail-close')?.addEventListener('click', clearSelection);
@@ -960,8 +980,7 @@ function clampMinScore(value) {
 }
 
 function renderDetail(event) {
-  nodes.detailPanel.classList.add('detail-panel--open');
-  nodes.detailPanel.innerHTML = `
+  openDetailPanel(`
     <div class="detail-panel__inner">
       <div class="detail-panel__header">
         <div class="detail-panel__heading">
@@ -984,9 +1003,8 @@ function renderDetail(event) {
         ${event.url ? `<a class="secondary-button detail-action-button" href="${encodeURI(event.url)}" target="_blank" rel="noopener">Quelle öffnen</a>` : ''}
       </div>
     </div>
-  `;
+  `);
 
-  document.getElementById('detail-close')?.addEventListener('click', clearSelection);
   document.getElementById('focus-event')?.addEventListener('click', () => {
     state.map.easeTo({
       center: [event.lon, event.lat],
@@ -1031,6 +1049,8 @@ function selectEvent(eventId, options = {}) {
 
 function clearSelection() {
   state.selectedEventId = null;
+  nodes.detailBackdrop.classList.remove('detail-backdrop--open');
+  nodes.detailBackdrop.hidden = true;
   nodes.detailPanel.classList.remove('detail-panel--open');
   nodes.detailPanel.innerHTML = '';
   renderEventList();

@@ -1,7 +1,10 @@
 const eventRepository = require('../repositories/event.repository');
 const scoringService = require('./scoring.service');
 const dedupService = require('./dedup.service');
+const { getWebSocketServer } = require('./ws.service');
 const logger = require('../utils/logger');
+
+let statsBroadcastTimer = null;
 
 async function list(options = {}) {
   const events = await eventRepository.list(options);
@@ -48,12 +51,26 @@ async function create(eventData) {
   };
 
   const id = await eventRepository.create(event);
-  return { ...event, id, isDuplicate: false };
+  const createdEvent = enrichEvent({ ...event, id });
+  broadcastEventCreated(createdEvent);
+  scheduleStatsBroadcast();
+  return { ...createdEvent, isDuplicate: false };
 }
 
 async function update(id, updates) {
   const score = updates.data ? await scoringService.calculate(updates.data) : undefined;
-  return eventRepository.update(id, { ...updates, score, updatedAt: new Date() });
+  const didUpdate = await eventRepository.update(id, { ...updates, score, updated_at: new Date() });
+  if (!didUpdate) {
+    return false;
+  }
+
+  const updatedEvent = await getById(id);
+  if (updatedEvent) {
+    broadcastEventUpdated(updatedEvent);
+    scheduleStatsBroadcast();
+  }
+
+  return updatedEvent || true;
 }
 
 function enrichEvent(event) {
@@ -165,6 +182,49 @@ function toNumber(value) {
 
 function toNullableNumber(value) {
   return value === null || value === undefined ? null : Number(value);
+}
+
+function broadcastEventCreated(event) {
+  const wsServer = getWebSocketServer();
+  if (!wsServer || !event) {
+    return;
+  }
+
+  wsServer.sendEvent(event);
+}
+
+function broadcastEventUpdated(event) {
+  const wsServer = getWebSocketServer();
+  if (!wsServer || !event) {
+    return;
+  }
+
+  wsServer.sendUpdate(event);
+}
+
+function scheduleStatsBroadcast() {
+  const wsServer = getWebSocketServer();
+  if (!wsServer) {
+    return;
+  }
+
+  if (statsBroadcastTimer) {
+    clearTimeout(statsBroadcastTimer);
+  }
+
+  statsBroadcastTimer = setTimeout(async () => {
+    statsBroadcastTimer = null;
+    try {
+      const stats = await getStats();
+      wsServer.sendStats(stats);
+    } catch (error) {
+      logger.warn(`Unable to broadcast stats update: ${error.message}`);
+    }
+  }, 600);
+
+  if (typeof statsBroadcastTimer.unref === 'function') {
+    statsBroadcastTimer.unref();
+  }
 }
 
 module.exports = { list, getById, getNearby, getStats, create, update, enrichEvent, toGeoJson };

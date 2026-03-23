@@ -6,6 +6,7 @@ const { getWebSocketServer } = require('./ws.service');
 const importers = {
   usgs: require('../importers/usgs.importer'),
   gdacs: require('../importers/gdacs.importer'),
+  noaa_tsunami: require('../importers/noaa-tsunami.importer'),
   firms: require('../importers/firms.importer'),
   acled: require('../importers/acled.importer'),
   reliefweb: require('../importers/reliefweb.importer'),
