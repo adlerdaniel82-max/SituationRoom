@@ -10,6 +10,7 @@ Aktueller Funktionsstand:
 - MariaDB als Primärspeicher
 - Live-Frontend mit MapLibre, Viewport-Fetch, Filtern, WebSocket-Updates und Detailmodals
 - eigenes Meldungsfenster für GDELT-verifizierte Nachrichtenhinweise
+- mehrteiliges Scoring pro Event mit `source_confidence`, `event_severity`, `validation_score` und `attention_score`
 - Nginx-Setup produktiv auf `situation.schnueddels.de`
 
 Wichtige Einschränkungen:
@@ -33,6 +34,7 @@ Vorläufig deaktiviert:
 
 Quelle-Details und Auth-Hinweise stehen in:
 - `public_html/docs/sources.md`
+- `public_html/docs/operations.md`
 
 ## Architektur
 
@@ -93,6 +95,8 @@ Wichtige Variablen:
 Wichtige Endpunkte:
 - `GET /api/events`
 - `GET /api/events?format=geojson`
+- `GET /api/events/:id/validation`
+- `POST /api/events/:id/report-industrial`
 - `GET /api/sources/status`
 - `GET /api/stats`
 - `GET /api/stats/summary`
@@ -105,6 +109,9 @@ Wichtige Endpunkte:
 Zusätzlich werden Roh- und Änderungshistorien mitgeführt:
 - `raw_events` für Rohpayloads und normalisierte Event-Snapshots bei Neuanlage
 - `event_updates` für Vorher-/Nachher-Stände bei Event-Änderungen
+- `event_reports` für Community-Meldungen wie `industrial_heat` bei FIRMS-Feuern
+- `event_tags` als vorbereitete Tagging-Basis für spätere quellenübergreifende Korrelationen und Reviews
+- `event_validation_matches` für persistente GDELT-/ReliefWeb-Matches zu Primärevents
 
 ## Jobs
 
@@ -117,6 +124,17 @@ Importjobs:
 - `node public_html/backend/src/jobs/run-reliefweb.js`
 - `node public_html/backend/src/jobs/run-opensky.js`
 - `node public_html/backend/src/jobs/run-acled.js`
+
+Wartungsjobs:
+- `node public_html/backend/src/jobs/backfill-scoring.js`
+- `node public_html/backend/src/jobs/backfill-news-validation.js`
+
+ACLED ist technisch vorbereitet, aber standardmäßig deaktiviert. Nach Freischaltung reicht der Aktivierungsschritt über die Quelle selbst oder per SQL-Helper:
+
+```bash
+./private/scripts/db_run_sql.sh public_html/sql/enable_acled.sql
+node public_html/backend/src/jobs/run-acled.js
+```
 
 Die Jobs verwenden Lockfiles gegen parallele Doppelläufe.
 
@@ -143,6 +161,9 @@ Beispiel Release:
 ./private/scripts/release.sh "Commit Message"
 ```
 
+Ausführlichere Betriebs- und Recovery-Hinweise:
+- `public_html/docs/operations.md`
+
 ## Frontend
 
 Der aktuelle Desktop-Aufbau:
@@ -156,3 +177,5 @@ Der aktuelle Desktop-Aufbau:
 Die Basiskarte kann mit MapTiler `dataviz-v4-dark` und deutscher Primärsprache betrieben werden, wenn `MAPTILER_API_KEY` gesetzt ist.
 
 Das Panel `Wichtigste Meldungen` ist aktuell bewusst vom Kartenfilter entkoppelt und zeigt nur `GDELT`-basierte Attention-Meldungen im aktuellen Kartenausschnitt.
+
+FIRMS-Feuer können im Detailmodal als mutmaßliche Industrieanlage gemeldet werden. Ab drei unterschiedlichen Meldungen wird der Treffer in Karten- und Listenansichten automatisch ausgeblendet, bleibt aber per Direktaufruf des Events abrufbar.

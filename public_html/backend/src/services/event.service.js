@@ -6,6 +6,7 @@ const { getWebSocketServer } = require('./ws.service');
 const logger = require('../utils/logger');
 
 let statsBroadcastTimer = null;
+const validationRefreshTimers = new Map();
 
 async function list(options = {}) {
   const events = await eventRepository.list(options);
@@ -40,13 +41,15 @@ async function create(eventData) {
     return { ...enrichEvent(existing), isDuplicate: true };
   }
 
-  // Calculate score
-  const score = await scoringService.calculate(eventData);
+  // Calculate score and component breakdown
+  const scoring = await scoringService.calculateDetailed(eventData);
+  const data = attachScoringToData(eventData.data, scoring);
 
   // Create event
   const event = {
     ...eventData,
-    score,
+    data,
+    score: scoring.score,
     createdAt: new Date(),
     updatedAt: new Date()
   };
@@ -56,6 +59,7 @@ async function create(eventData) {
   await persistRawEventSnapshot(createdEvent, eventData);
   broadcastEventCreated(createdEvent);
   scheduleStatsBroadcast();
+  scheduleNewsValidationRefresh(createdEvent);
   return { ...createdEvent, isDuplicate: false };
 }
 
@@ -65,8 +69,15 @@ async function update(id, updates) {
     return false;
   }
 
-  const score = updates.data ? await scoringService.calculate(updates.data) : undefined;
-  const didUpdate = await eventRepository.update(id, { ...updates, score, updated_at: new Date() });
+  const scoringInput = buildScoringInput(previousEvent, updates);
+  const scoring = await scoringService.calculateDetailed(scoringInput);
+  const didUpdate = await eventRepository.update(id, {
+    ...updates,
+    magnitude: updates.magnitude !== undefined ? updates.magnitude : scoringInput.magnitude,
+    data: attachScoringToData(scoringInput.data, scoring),
+    score: scoring.score,
+    updated_at: new Date()
+  });
   if (!didUpdate) {
     return false;
   }
@@ -76,6 +87,7 @@ async function update(id, updates) {
     await persistEventUpdate(previousEvent, updatedEvent);
     broadcastEventUpdated(updatedEvent);
     scheduleStatsBroadcast();
+    scheduleNewsValidationRefresh(updatedEvent);
   }
 
   return updatedEvent || true;
@@ -88,6 +100,7 @@ function enrichEvent(event) {
   const magnitude = toNullableNumber(event.magnitude);
   const depth = toNullableNumber(event.depth);
   const score = toNumber(event.score);
+  const scoring = normalizeScoringComponents(data?.scoring);
   const affectedPopulation = event.affectedPopulation ?? event.affected_population ?? null;
 
   return {
@@ -99,6 +112,11 @@ function enrichEvent(event) {
     depth,
     score,
     affectedPopulation,
+    sourceConfidence: scoring.source_confidence,
+    eventSeverityScore: scoring.event_severity,
+    validationScore: scoring.validation_score,
+    attentionScore: scoring.attention_score,
+    validationSummary: data?.validation || null,
     severity: calculateSeverity(score),
     urgency: calculateUrgency({ ...event, timestamp: event.timestamp })
   };
@@ -149,6 +167,10 @@ function toGeoJson(events = []) {
         type: event.type,
         source: event.source,
         score: event.score,
+        sourceConfidence: event.sourceConfidence,
+        eventSeverityScore: event.eventSeverityScore,
+        validationScore: event.validationScore,
+        attentionScore: event.attentionScore,
         severity: event.severity,
         urgency: event.urgency,
         timestamp: event.timestamp,
@@ -190,6 +212,70 @@ function toNumber(value) {
 
 function toNullableNumber(value) {
   return value === null || value === undefined ? null : Number(value);
+}
+
+function attachScoringToData(data, scoring) {
+  const payload = data && typeof data === 'object' && !Array.isArray(data)
+    ? { ...data }
+    : {};
+
+  payload.scoring = {
+    source_confidence: scoring.source_confidence,
+    event_severity: scoring.event_severity,
+    validation_score: scoring.validation_score,
+    attention_score: scoring.attention_score,
+    combined_score: scoring.score
+  };
+
+  return payload;
+}
+
+function buildScoringInput(previousEvent, updates) {
+  const previousData = previousEvent?.data && typeof previousEvent.data === 'object' ? previousEvent.data : {};
+  const updateData = updates?.data && typeof updates.data === 'object' ? updates.data : {};
+  const mergedData = {
+    ...previousData,
+    ...updateData
+  };
+
+  const affectedPopulation =
+    updates?.affectedPopulation
+    ?? updates?.affected_population
+    ?? previousEvent?.affectedPopulation
+    ?? previousEvent?.affected_population
+    ?? mergedData.affectedPopulation
+    ?? mergedData.affected_population
+    ?? null;
+
+  return {
+    ...previousEvent,
+    ...updates,
+    type: updates?.type ?? previousEvent?.type ?? mergedData.type,
+    source: updates?.source ?? previousEvent?.source ?? mergedData.source,
+    magnitude: updates?.magnitude ?? previousEvent?.magnitude ?? mergedData.magnitude ?? mergedData.normalizedSeverity ?? null,
+    affectedPopulation,
+    timestamp: updates?.timestamp ?? previousEvent?.timestamp ?? mergedData.timestamp ?? null,
+    url: updates?.url ?? previousEvent?.url ?? mergedData.url ?? null,
+    data: mergedData
+  };
+}
+
+function normalizeScoringComponents(scoring) {
+  if (!scoring || typeof scoring !== 'object') {
+    return {
+      source_confidence: null,
+      event_severity: null,
+      validation_score: null,
+      attention_score: null
+    };
+  }
+
+  return {
+    source_confidence: toNullableNumber(scoring.source_confidence),
+    event_severity: toNullableNumber(scoring.event_severity),
+    validation_score: toNullableNumber(scoring.validation_score),
+    attention_score: toNullableNumber(scoring.attention_score)
+  };
 }
 
 async function persistRawEventSnapshot(createdEvent, sourcePayload) {
@@ -298,6 +384,33 @@ function scheduleStatsBroadcast() {
 
   if (typeof statsBroadcastTimer.unref === 'function') {
     statsBroadcastTimer.unref();
+  }
+}
+
+function scheduleNewsValidationRefresh(event) {
+  if (!event?.id) {
+    return;
+  }
+
+  if (validationRefreshTimers.has(event.id)) {
+    clearTimeout(validationRefreshTimers.get(event.id));
+  }
+
+  const timer = setTimeout(async () => {
+    validationRefreshTimers.delete(event.id);
+
+    try {
+      const newsValidationService = require('./news-validation.service');
+      await newsValidationService.refreshForEvent(event);
+    } catch (error) {
+      logger.warn(`Unable to refresh news validation for event ${event.id}: ${error.message}`);
+    }
+  }, 1200);
+
+  validationRefreshTimers.set(event.id, timer);
+
+  if (typeof timer.unref === 'function') {
+    timer.unref();
   }
 }
 

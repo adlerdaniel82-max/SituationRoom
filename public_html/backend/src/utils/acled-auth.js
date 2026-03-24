@@ -25,29 +25,47 @@ async function getAccessToken(options = {}) {
     }
   }
 
-  const username = env.sourceAuth.acled.username;
   const password = env.sourceAuth.acled.password;
   const clientId = env.sourceAuth.acled.clientId;
+  const usernames = [
+    env.sourceAuth.acled.username,
+    env.sourceAuth.acled.altUsername
+  ].filter(Boolean);
 
-  if (!username || !password) {
+  if (usernames.length === 0 || !password) {
     throw new Error('ACLED OAuth credentials are missing');
   }
 
-  const body = new URLSearchParams({
-    username,
-    password,
-    grant_type: 'password',
-    client_id: clientId
-  });
+  let lastError;
 
-  const response = await axios.post(ACLED_TOKEN_URL, body.toString(), {
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    timeout: 15000
-  });
+  for (const username of usernames) {
+    try {
+      const body = new URLSearchParams({
+        username,
+        password,
+        grant_type: 'password',
+        client_id: clientId
+      });
 
-  return storeTokens(response.data);
+      const response = await axios.post(ACLED_TOKEN_URL, body.toString(), {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        timeout: 15000
+      });
+
+      return storeTokens(response.data);
+    } catch (error) {
+      lastError = error;
+
+      const status = error.response?.status;
+      if (status && ![400, 401, 403].includes(status)) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError || new Error('ACLED OAuth login failed');
 }
 
 async function refreshAccessToken(refreshToken) {

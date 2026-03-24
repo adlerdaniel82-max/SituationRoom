@@ -38,8 +38,8 @@ Situation Dashboard is a real-time crisis monitoring system that aggregates data
 ┌─────────────────────────────────────────────────────────────────┐
 │                          Database                                │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
-│  │   Events    │  │   Sources   │  │    Correlations         │  │
-│  │   Raw Data  │  │   Clusters  │  │                         │  │
+│  │   Events    │  │   Sources   │  │ Correlations / Tags     │  │
+│  │ Raw Data    │  │  Clusters   │  │ Reports / History       │  │
 │  └─────────────┘  └─────────────┘  └─────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -49,15 +49,16 @@ Situation Dashboard is a real-time crisis monitoring system that aggregates data
 1. **Ingestion**: Source runners (cron jobs) fetch data from external APIs
 2. **Processing**: Importers parse and normalize data
 3. **Deduplication**: Check for existing events using hash comparison
-4. **Scoring**: Calculate severity score based on type, magnitude, population
-5. **Storage**: Save to database with spatial indexes
-6. **Broadcast**: WebSocket pushes new events to connected clients
-7. **Display**: Frontend updates clustered layers, source status and event list
+4. **Scoring**: Calculate multi-part score based on source confidence, severity, validation and attention
+5. **Validation Prep**: Build query terms and persist secondary news matches for primary events
+6. **Storage**: Save to database with spatial indexes, history tables, moderation reports and tag-ready structures
+7. **Broadcast**: WebSocket pushes new events to connected clients
+8. **Display**: Frontend updates clustered layers, source status and event list
 
 ## Key Services
 
 - **Event Service**: CRUD operations, enrichment with severity/urgency
-- **Scoring Service**: Calculate event severity (0-1)
+- **Scoring Service**: Calculate combined and component scores (0-1)
 - **Dedup Service**: Prevent duplicate events
 - **Geo Service**: Distance calculations, bounding boxes
 - **WebSocket Service**: Real-time updates to clients

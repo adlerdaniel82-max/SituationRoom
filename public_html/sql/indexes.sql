@@ -30,5 +30,8 @@ ANALYZE TABLE sources;
 ANALYZE TABLE raw_data;
 ANALYZE TABLE raw_events;
 ANALYZE TABLE event_updates;
+ANALYZE TABLE event_reports;
+ANALYZE TABLE event_tags;
+ANALYZE TABLE event_validation_matches;
 ANALYZE TABLE correlations;
 ANALYZE TABLE clusters;

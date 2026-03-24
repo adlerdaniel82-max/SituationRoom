@@ -1,4 +1,5 @@
 const eventService = require('../services/event.service');
+const eventReportService = require('../services/event-report.service');
 const logger = require('../utils/logger');
 
 async function list(req, res, next) {
@@ -82,4 +83,56 @@ async function getStats(req, res, next) {
   }
 }
 
-module.exports = { list, getById, getNearby, getStats };
+async function reportIndustrialHeat(req, res, next) {
+  try {
+    const { id } = req.params;
+    const result = await eventReportService.reportIndustrialHeat(Number(id), {
+      clientId: req.header('x-client-id'),
+      ip: req.ip,
+      userAgent: req.header('user-agent')
+    });
+
+    if (result.error === 'not_found') {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    if (result.error === 'unsupported_event_type') {
+      return res.status(400).json({ error: 'Only FIRMS fire events can be marked as industrial heat' });
+    }
+
+    if (result.error === 'missing_reporter') {
+      return res.status(400).json({ error: 'Reporter identity missing' });
+    }
+
+    res.json(result);
+  } catch (error) {
+    logger.error('Error reporting industrial heat:', error);
+    next(error);
+  }
+}
+
+async function getValidation(req, res, next) {
+  try {
+    const { id } = req.params;
+    const event = await eventService.getById(id);
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    const newsValidationService = require('../services/news-validation.service');
+    const matches = await newsValidationService.listValidationMatches(Number(id));
+
+    res.json({
+      event_id: Number(id),
+      source: event.source,
+      type: event.type,
+      validation: event.validationSummary,
+      matches
+    });
+  } catch (error) {
+    logger.error('Error getting event validation:', error);
+    next(error);
+  }
+}
+
+module.exports = { list, getById, getNearby, getStats, reportIndustrialHeat, getValidation };

@@ -89,6 +89,75 @@ CREATE TABLE event_updates (
     FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- Event reports table: anonymous moderation signals such as industrial-heat reports
+CREATE TABLE event_reports (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  event_id INT UNSIGNED NOT NULL,
+  report_type VARCHAR(50) NOT NULL,
+  reporter_key CHAR(64) NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE KEY uniq_event_reporter_type (event_id, report_type, reporter_key),
+  KEY idx_event_reports_event_type (event_id, report_type),
+  KEY idx_event_reports_created_at (created_at DESC),
+  CONSTRAINT fk_event_reports_event
+    FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Event tags table: normalized labels for later cross-source validation and review workflows
+CREATE TABLE event_tags (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  event_id INT UNSIGNED NOT NULL,
+  tag_type VARCHAR(50) NOT NULL,
+  tag VARCHAR(100) NOT NULL,
+  source VARCHAR(50) NOT NULL DEFAULT 'system',
+  confidence DECIMAL(5, 4) DEFAULT NULL,
+  value VARCHAR(255) DEFAULT NULL,
+  data JSON DEFAULT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  UNIQUE KEY uniq_event_tag (event_id, tag_type, tag, source),
+  KEY idx_event_tags_event (event_id),
+  KEY idx_event_tags_lookup (tag_type, tag, source),
+  KEY idx_event_tags_created (created_at DESC),
+  CONSTRAINT fk_event_tags_event
+    FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- News validation matches: links primary incidents to secondary GDELT/ReliefWeb signals
+CREATE TABLE event_validation_matches (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  primary_event_id INT UNSIGNED NOT NULL,
+  secondary_event_id INT UNSIGNED NOT NULL,
+  secondary_source VARCHAR(50) NOT NULL,
+  query_text VARCHAR(1000) DEFAULT NULL,
+  query_terms JSON DEFAULT NULL,
+  match_score DECIMAL(5, 4) NOT NULL,
+  time_signal DECIMAL(5, 4) DEFAULT NULL,
+  location_signal DECIMAL(5, 4) DEFAULT NULL,
+  country_signal DECIMAL(5, 4) DEFAULT NULL,
+  keyword_signal DECIMAL(5, 4) DEFAULT NULL,
+  publisher_signal DECIMAL(5, 4) DEFAULT NULL,
+  article_signal DECIMAL(5, 4) DEFAULT NULL,
+  hours_distance DECIMAL(8, 2) DEFAULT NULL,
+  distance_km DECIMAL(10, 2) DEFAULT NULL,
+  publisher_count INT UNSIGNED DEFAULT NULL,
+  article_count INT UNSIGNED DEFAULT NULL,
+  signal_data JSON DEFAULT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  UNIQUE KEY uniq_validation_pair (primary_event_id, secondary_event_id),
+  KEY idx_validation_primary (primary_event_id, match_score DESC),
+  KEY idx_validation_secondary (secondary_event_id),
+  KEY idx_validation_source (secondary_source, updated_at DESC),
+  CONSTRAINT fk_validation_primary_event
+    FOREIGN KEY (primary_event_id) REFERENCES events(id) ON DELETE CASCADE,
+  CONSTRAINT fk_validation_secondary_event
+    FOREIGN KEY (secondary_event_id) REFERENCES events(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 -- Correlations table: stores detected correlations between events
 CREATE TABLE correlations (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

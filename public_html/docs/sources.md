@@ -49,6 +49,14 @@ Current bootstrap files:
 
 **Format:** RSS/XML feed
 
+**Notes:**
+- Current importer preserves the concrete GDACS family instead of flattening everything to `disaster`.
+- `EQ` events are normalized to `earthquake` with parsed depth where present.
+- `FL` events are normalized to `flood`.
+- `WF` events are normalized to `fire`.
+- Tropical cyclone wind speeds are normalized before they influence scoring, instead of using raw `km/h` values directly.
+- Additional GDACS fields such as alert score, episode alert score, CAP URL, icon URL, bbox and date metadata are preserved in event payloads.
+
 ---
 
 ### GDELT Attention
@@ -63,6 +71,7 @@ Current bootstrap files:
 - Secondary news and attention layer
 - Aggregated by publisher country
 - Not imported as unfiltered article-per-marker stream
+- Used as secondary validation source for primary incidents
 
 **Data:**
 - Global crisis-related news attention
@@ -121,6 +130,8 @@ Current bootstrap files:
 - CSV area endpoint with key in URL path
 - Current importer uses `VIIRS_SNPP_NRT`, global bbox and `1` day range
 - Recurrent hotspots on nearly identical coordinates are suppressed as `industrial_heat` heuristics once enough history exists
+- In addition, the current importer suppresses clustered night-time detections with low FRP, low/nominal confidence and industrial thermal signatures before import
+- Manual exclusion zones can still be added in `backend/src/config/firms-industrial-hotspots.js` for known steelworks, flare stacks or refineries
 
 ---
 
@@ -150,7 +161,10 @@ Current bootstrap files:
 **Notes:**
 - Importer requests a Bearer token from `https://acleddata.com/oauth/token`
 - Access token lifetime is documented as 24 hours; refresh token lifetime as 14 days
-- The current account may still need API access enabled in ACLED if data requests return `403 Access denied`
+- Login is prepared with primary and alternate username fallback via `ACLED_USERNAME` and `ACLED_ALT_USERNAME`
+- The source stays disabled by default until ACLED confirms API data access
+- After approval, activation only requires enabling the source and running `run-acled.js`
+- `public_html/sql/enable_acled.sql` exists as a simple activation helper for the DB flag
 
 ---
 
@@ -176,6 +190,7 @@ Current bootstrap files:
 - Current API access is bound to an approved `appname`, not a classic API key.
 - The importer currently uses `POST /v2/reports?appname=...` with `preset=latest` and `profile=list`.
 - The currently configured approved `appname` is `DAdler-schnueddelssituationroom2026-me509`.
+- ReliefWeb reports are also used as a secondary validation source for primary incidents when title/country/time signals align.
 
 ---
 

@@ -4,7 +4,21 @@ const hashService = require('../utils/hash');
 async function list(options = {}) {
   const { type, source, minScore, startDate, endDate, bbox, limit = 100, offset = 0 } = options;
 
-  let sql = 'SELECT * FROM events WHERE 1=1';
+  let sql = `
+    SELECT *
+    FROM events
+    WHERE 1=1
+      AND NOT (
+        source = 'firms'
+        AND type = 'fire'
+        AND (
+          SELECT COUNT(*)
+          FROM event_reports
+          WHERE event_reports.event_id = events.id
+            AND event_reports.report_type = 'industrial_heat'
+        ) >= 3
+      )
+  `;
   const params = [];
   const types = Array.isArray(type)
     ? type
@@ -88,6 +102,16 @@ async function getNearby(lat, lon, radiusKm, limit = 50) {
     FROM events
     WHERE lat BETWEEN ? AND ?
       AND lon BETWEEN ? AND ?
+      AND NOT (
+        source = 'firms'
+        AND type = 'fire'
+        AND (
+          SELECT COUNT(*)
+          FROM event_reports
+          WHERE event_reports.event_id = events.id
+            AND event_reports.report_type = 'industrial_heat'
+        ) >= 3
+      )
     HAVING distance <= ?
     ORDER BY timestamp DESC
     LIMIT ?
@@ -115,6 +139,16 @@ async function getStats() {
       COUNT(CASE WHEN score >= 0.4 AND score < 0.6 THEN 1 END) as medium,
       COUNT(CASE WHEN score < 0.4 THEN 1 END) as low
     FROM events
+    WHERE NOT (
+      source = 'firms'
+      AND type = 'fire'
+      AND (
+        SELECT COUNT(*)
+        FROM event_reports
+        WHERE event_reports.event_id = events.id
+          AND event_reports.report_type = 'industrial_heat'
+      ) >= 3
+    )
   `;
   const rows = await query(sql);
   return rows[0];

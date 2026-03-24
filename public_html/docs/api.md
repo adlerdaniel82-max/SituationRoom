@@ -73,6 +73,14 @@ GET /api/events?[type=<type[,type2]>][&source=<source[,source2]>][&minScore=<sco
 GET /api/events/:id
 ```
 
+### Get Event Validation
+
+```
+GET /api/events/:id/validation
+```
+
+Liefert die vorberechnete News-Validierungszusammenfassung eines Primärevents sowie persistierte Matches gegen `GDELT` und `ReliefWeb`.
+
 ### Get Nearby Events
 
 ```

@@ -119,6 +119,7 @@ const LEGAL_CONTENT = {
 
 const FILTER_STORAGE_KEY = 'situation-room.filters.v2';
 const LEGACY_FILTER_STORAGE_KEY = 'situation-room.filters.v1';
+const CLIENT_ID_STORAGE_KEY = 'situation-room.client-id';
 const EMPTY_FILTER_SENTINEL = '__none__';
 const EVENT_RESPONSE_FORMAT = 'geojson';
 const DEFAULT_SOURCE_FILTERS = new Set(
@@ -1014,6 +1015,8 @@ function clampMinScore(value) {
 }
 
 function renderDetail(event) {
+  const canReportIndustrialHeat = event.source === 'firms' && event.type === 'fire';
+
   openDetailPanel(`
     <div class="detail-panel__inner">
       <div class="detail-panel__header">
@@ -1032,9 +1035,15 @@ function renderDetail(event) {
         ${event.magnitude !== null ? renderDetailField('Magnitude', String(event.magnitude)) : ''}
       </div>
       ${event.description ? `<p class="detail-copy">${escapeHtml(event.description)}</p>` : ''}
+      ${canReportIndustrialHeat ? `
+        <div id="industrial-report-note" class="detail-note">
+          Wenn mehrere Nutzer diesen Treffer als Industrieanlage markieren, wird er automatisch aus der Karte ausgeblendet.
+        </div>
+      ` : ''}
       <div class="detail-actions">
         <button id="focus-event" class="primary-button detail-action-button" type="button">Auf Karte fokussieren</button>
         ${event.url ? `<a class="secondary-button detail-action-button" href="${encodeURI(event.url)}" target="_blank" rel="noopener">Quelle öffnen</a>` : ''}
+        ${canReportIndustrialHeat ? '<button id="report-industrial" class="secondary-button detail-action-button" type="button">Als Industrieanlage markieren</button>' : ''}
       </div>
     </div>
   `);
@@ -1044,6 +1053,10 @@ function renderDetail(event) {
       center: [event.lon, event.lat],
       zoom: Math.max(state.map.getZoom(), 5)
     });
+  });
+
+  document.getElementById('report-industrial')?.addEventListener('click', async () => {
+    await submitIndustrialHeatReport(event);
   });
 }
 
@@ -1228,6 +1241,80 @@ async function resolveEventById(eventId) {
   }
 }
 
+async function submitIndustrialHeatReport(event) {
+  const button = document.getElementById('report-industrial');
+  const note = document.getElementById('industrial-report-note');
+
+  if (button) {
+    button.disabled = true;
+  }
+
+  if (note) {
+    note.textContent = 'Meldung wird gespeichert …';
+  }
+
+  try {
+    const response = await fetchJson(`/api/events/${event.id}/report-industrial`, {
+      method: 'POST',
+      headers: {
+        'x-client-id': getClientId()
+      }
+    });
+
+    if (note) {
+      note.textContent = response.inserted
+        ? `Markierung gespeichert. ${response.reportCount}/${response.threshold} Meldungen erreicht.`
+        : `Dieser Browser hat den Treffer bereits markiert. Aktuell ${response.reportCount}/${response.threshold}.`;
+    }
+
+    if (!response.inserted && button) {
+      button.disabled = true;
+      return;
+    }
+
+    if (response.hidden) {
+      if (note) {
+        note.textContent = 'Der Treffer ist jetzt als Industrieanlage ausgeblendet.';
+      }
+
+      window.setTimeout(() => {
+        clearSelection();
+        scheduleViewportRefresh(0);
+      }, 250);
+      return;
+    }
+
+    if (button) {
+      button.disabled = true;
+    }
+  } catch (error) {
+    console.error(`Failed to report industrial heat for event ${event.id}:`, error);
+    if (note) {
+      note.textContent = 'Markierung konnte nicht gespeichert werden.';
+    }
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
+function getClientId() {
+  try {
+    let clientId = window.localStorage.getItem(CLIENT_ID_STORAGE_KEY);
+    if (clientId) {
+      return clientId;
+    }
+
+    clientId = window.crypto?.randomUUID?.()
+      || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+
+    window.localStorage.setItem(CLIENT_ID_STORAGE_KEY, clientId);
+    return clientId;
+  } catch {
+    return 'ephemeral-client';
+  }
+}
+
 function normalizeEvent(event) {
   const description =
     event.data?.description
@@ -1327,10 +1414,12 @@ function emptyFeatureCollection() {
   };
 }
 
-async function fetchJson(url) {
+async function fetchJson(url, options = {}) {
   const response = await fetch(url, {
+    ...options,
     headers: {
-      Accept: 'application/json'
+      Accept: 'application/json',
+      ...(options.headers || {})
     }
   });
 
