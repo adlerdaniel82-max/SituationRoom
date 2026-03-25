@@ -52,9 +52,10 @@ module.exports = {
       query: process.env.GDELT_QUERY || '("earthquake" OR tsunami OR flood OR wildfire OR volcano OR hurricane OR cyclone OR landslide OR evacuation OR humanitarian OR famine OR outbreak OR conflict OR airstrike OR missile OR drone OR "plane crash")',
       timespan: process.env.GDELT_TIMESPAN || '6h',
       maxRecords: parseInt(process.env.GDELT_MAX_RECORDS, 10) || 60,
-      minCountryArticles: parseInt(process.env.GDELT_MIN_COUNTRY_ARTICLES, 10) || 2,
-      maxCountries: parseInt(process.env.GDELT_MAX_COUNTRIES, 10) || 12,
-      timeoutMs: parseInt(process.env.GDELT_TIMEOUT_MS, 10) || 30000
+      minCountryArticles: parseInt(process.env.GDELT_MIN_COUNTRY_ARTICLES, 10) || 1,
+      maxCountries: parseInt(process.env.GDELT_MAX_COUNTRIES, 10) || 20,
+      timeoutMs: parseInt(process.env.GDELT_TIMEOUT_MS, 10) || 30000,
+      cacheMaxAgeHours: parseInt(process.env.GDELT_CACHE_MAX_AGE_HOURS, 10) || 72
     },
     firms: {
       dataset: process.env.FIRMS_DATASET || 'VIIRS_SNPP_NRT',

@@ -64,10 +64,30 @@ Für produktive Probleme zuerst prüfen:
   - `FIRMS_API_KEY`
   - `RELIEFWEB_APPNAME`
   - `OPENSKY_CLIENT_ID`, `OPENSKY_CLIENT_SECRET`
-  - `ACLED_USERNAME`, `ACLED_ALT_USERNAME`, `ACLED_PASSWORD`, `ACLED_CLIENT_ID`
   - `GDELT_QUERY`, `GDELT_TIMESPAN`, `GDELT_MAX_RECORDS`, `GDELT_MIN_COUNTRY_ARTICLES`, `GDELT_MAX_COUNTRIES`
 
 Nach Änderungen an `.env` immer `pm2 reload situation --update-env`.
+
+## Datenbank-Migrationen
+
+Versionierte Migrationen liegen unter `public_html/sql/migrations/`.
+
+Kommandos:
+
+```bash
+npm --prefix public_html/backend run db:migrate
+npm --prefix public_html/backend run db:baseline
+```
+
+Regeln:
+- neue Schema-Aenderungen nur noch als neue numerierte Datei in `public_html/sql/migrations/`
+- bestehende Migrationsdateien nach Anwendung nicht mehr aendern
+- `schema.sql` bleibt als Snapshot/Referenz, nicht als primaerer Update-Mechanismus fuer laufende Systeme
+
+Bestehende Installation auf neues Modell heben:
+1. `npm --prefix public_html/backend run db:baseline`
+2. mit `SELECT * FROM schema_migrations ORDER BY version;` pruefen
+3. spaetere Aenderungen mit `db:migrate` einspielen
 
 ## Job-Läufe
 
@@ -81,6 +101,9 @@ node public_html/backend/src/jobs/run-noaa-tsunami.js
 node public_html/backend/src/jobs/run-firms.js
 node public_html/backend/src/jobs/run-reliefweb.js
 node public_html/backend/src/jobs/run-opensky.js
+node public_html/backend/src/jobs/run-bbc.js
+node public_html/backend/src/jobs/run-ap.js
+node public_html/backend/src/jobs/run-reuters.js
 node public_html/backend/src/jobs/run-acled.js
 node public_html/backend/src/jobs/backfill-scoring.js
 node public_html/backend/src/jobs/backfill-news-validation.js
@@ -94,7 +117,10 @@ Aktuelle Soll-Intervalle laut `sources`-Seeds:
 - `firms`: `600s`
 - `reliefweb`: `1800s`
 - `opensky`: `60s`
-- `acled`: `3600s`, derzeit deaktiviert
+- `bbc`: `1800s`
+- `ap`: `1800s`, derzeit deaktiviert
+- `reuters`: `1800s`, derzeit deaktiviert
+- `acled`: `3600s`, operativ ausgeblendet und deaktiviert
 
 ## Job-Locks
 
@@ -115,7 +141,7 @@ Wenn ein Job fälschlich dauerhaft als gesperrt erscheint:
 ### GDELT
 
 - `GDELT` ist ein Attention-Layer, kein Primärfeed.
-- Das Panel `Wichtigste Meldungen` nutzt ausschließlich `GDELT`.
+- Das Panel `Wichtigste Meldungen` mischt aktuell priorisierte News aus `BBC`, `GDELT`, `ReliefWeb` und optional `Reuters`.
 - `GDELT` wird zusätzlich als sekundäre Validierungsquelle für Primärevents ausgewertet.
 - Die API kann bei zu engem Polling `429 Too Many Requests` liefern.
 
@@ -139,6 +165,22 @@ Empfehlung bei `429`:
 - ReliefWeb wird zusätzlich als sekundäre Validierungsquelle für Primärevents ausgewertet.
 - Bei `403` zuerst prüfen, ob der aktuelle App-Name von ReliefWeb bereits freigeschaltet wurde.
 
+### BBC / Reuters
+
+- `BBC` ist als zusätzliche sekundäre Newsquelle aktiv.
+- Die aktuelle Ortsauflösung für News-Feeds ist konservativ und verwirft viele Einträge ohne brauchbaren Länderbezug.
+- News-Ereignisse speichern nach Möglichkeit `content_language` bzw. `content_languages`, damit Originalsprache sichtbar bleibt.
+- Eine echte Übersetzung von Titeln/Beschreibungen ist derzeit nicht Teil der Pipeline; im Frontend gibt es stattdessen fuer fremdsprachige Meldungen den externen Link `Uebersetzt oeffnen` ueber Google Translate.
+- `Reuters` ist bereits integriert, bleibt aber deaktiviert, bis die Feed-Endpunkte fachlich bestätigt sind.
+- `AP` ist operativ stillgelegt, weil keine verlässliche RSS-Quelle mehr verfügbar ist.
+- Nach größeren Änderungen an diesen Feed-Importern einmal `backfill-news-validation.js` laufen lassen.
+
+### GDELT
+
+- GDELT liefert auf diesem Host derzeit häufig `429 Too Many Requests`.
+- Der Importer nutzt deshalb jetzt automatisch den letzten erfolgreichen Rohsnapshot als Fallback.
+- Die Ländergruppierung ist auf `min_country_articles = 1` und `max_countries = 20` entspannt, damit der sichtbare Bestand trotz Rate-Limit nicht auf wenige Länder kollabiert.
+
 ### OpenSky
 
 - OpenSky nutzt OAuth2 Client Credentials.
@@ -147,16 +189,8 @@ Empfehlung bei `429`:
 
 ### ACLED
 
-- Authentifizierung ist technisch implementiert.
-- Login unterstützt primären und alternativen User.
-- Datencalls liefern aktuell weiterhin `403 Access denied`.
-- Quelle bleibt deshalb deaktiviert, bis die Rechtefrage geklärt ist.
-- Nach Freischaltung genügt:
-
-```bash
-./private/scripts/db_run_sql.sh public_html/sql/enable_acled.sql
-node public_html/backend/src/jobs/run-acled.js
-```
+- ACLED bleibt im Codebestand, ist aber operativ deaktiviert und über `/api/sources/status` sowie die UI ausgeblendet.
+- Hintergrund ist nicht mehr nur Auth, sondern die aktuell nicht finanzierbare API-Lizenz.
 
 ## Nginx und Hestia
 

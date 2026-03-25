@@ -1,8 +1,6 @@
 -- Situation Dashboard: Seed Sources Data
 -- Initial configuration for data sources
 
-USE webuser_situation;
-
 -- Idempotent upsert of source definitions and runtime defaults
 INSERT INTO sources (id, name, type, enabled, interval_seconds, config) VALUES
   (

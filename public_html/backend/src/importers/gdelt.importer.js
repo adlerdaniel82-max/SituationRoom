@@ -17,12 +17,14 @@ async function run() {
   const response = await fetchDocAttention(query, options);
   const articles = parseDocArticles(response.data);
 
-  await rawRepository.storeRaw('gdelt', {
-    query,
-    timespan: options.timespan,
-    total_articles: articles.length,
-    payload: response.data
-  });
+  if (!response.fromCache) {
+    await rawRepository.storeRaw('gdelt', {
+      query,
+      timespan: options.timespan,
+      total_articles: articles.length,
+      payload: response.data
+    });
+  }
 
   const countryGroups = buildCountryGroups(articles)
     .filter((group) => group.articleCount >= options.minCountryArticles)
@@ -56,38 +58,54 @@ async function run() {
     duplicates,
     updated,
     skipped,
+    from_cache: Boolean(response.fromCache),
     total_articles: articles.length,
     grouped_countries: countryGroups.length
   };
 }
 
 async function fetchDocAttention(query, options) {
+  const params = {
+    query,
+    mode: 'artlist',
+    format: 'json',
+    sort: 'date',
+    maxrecords: options.maxRecords,
+    timespan: options.timespan
+  };
+
   try {
     return await axios.get(GDELT_DOC_API, {
       timeout: options.timeoutMs,
-      params: {
-        query,
-        mode: 'artlist',
-        format: 'json',
-        sort: 'date',
-        maxrecords: options.maxRecords,
-        timespan: options.timespan
-      }
+      params
     });
   } catch (error) {
     if (error.response?.status === 429) {
       await wait(GDELT_RATE_LIMIT_DELAY_MS);
-      return axios.get(GDELT_DOC_API, {
-        timeout: options.timeoutMs,
-        params: {
-          query,
-          mode: 'artlist',
-          format: 'json',
-          sort: 'date',
-          maxrecords: options.maxRecords,
-          timespan: options.timespan
+      try {
+        return await axios.get(GDELT_DOC_API, {
+          timeout: options.timeoutMs,
+          params
+        });
+      } catch (retryError) {
+        if (retryError.response?.status === 429) {
+          const cached = await rawRepository.getLatest('gdelt');
+          const createdAt = cached?.created_at || cached?.createdAt || null;
+          const cacheAgeHours = createdAt
+            ? (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60)
+            : null;
+
+          if (cached?.payload && (cacheAgeHours === null || cacheAgeHours <= options.cacheMaxAgeHours)) {
+            logger.warn(`GDELT rate limited; reusing cached snapshot${cacheAgeHours !== null ? ` (${cacheAgeHours.toFixed(1)}h old)` : ''}`);
+            return {
+              data: cached.payload,
+              fromCache: true
+            };
+          }
         }
-      });
+
+        throw retryError;
+      }
     }
 
     throw error;
@@ -161,6 +179,11 @@ async function importCountryAttention(group, query) {
   }
 
   const attentionWeight = Math.max(group.articleCount, 1) * 1000;
+  const contentLanguages = Array.from(new Set(
+    group.articles
+      .map((article) => String(article.language || '').trim())
+      .filter(Boolean)
+  ));
   const event = {
     title: `GDELT Attention: ${group.country}`,
     type: 'humanitarian',
@@ -180,6 +203,8 @@ async function importCountryAttention(group, query) {
       attention_country_alpha3: centroid.alpha3,
       article_count: group.articleCount,
       distinct_domains: group.distinctDomains,
+      content_language: contentLanguages[0] || null,
+      content_languages: contentLanguages,
       query,
       articles: group.articles.slice(0, 5).map((article) => ({
         title: article.title,

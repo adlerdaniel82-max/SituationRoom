@@ -130,6 +130,38 @@ a {
   border-bottom: 1px solid rgba(111, 166, 255, 0.14);
 }
 
+.sidebar-header__controls {
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+  flex-shrink: 0;
+}
+
+.language-switch {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.language-switch__button {
+  min-width: 42px;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.language-switch__button + .language-switch__button {
+  border-left: 1px solid var(--line);
+}
+
+.language-switch__button.is-active {
+  background: rgba(111, 166, 255, 0.12);
+  color: var(--text);
+}
+
 .sidebar-header__copy,
 .detail-panel__heading,
 .source-card > div:first-child {

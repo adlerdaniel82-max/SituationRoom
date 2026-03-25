@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Situation Room</title>
   <meta
+    id="meta-description"
     name="description"
     content="Globale Lagekarte mit Live-Ereignissen, Clustern, Filtern und Quellenstatus."
   >
@@ -13,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
-  <link rel="stylesheet" href="./src/styles/app.css?v=20260323k">
+  <link rel="stylesheet" href="./src/styles/app.css?v=20260325c">
 </head>
 <body>
   <div class="app-shell">
@@ -31,18 +32,24 @@
       <aside id="sidebar" class="panel sidebar">
         <div class="sidebar-header">
           <div class="sidebar-header__copy">
-            <p class="brand-mark">Situation Room</p>
-            <h1>Situation Room</h1>
-            <p class="sidebar-intro">Globale Lagekarte für Katastrophen, humanitäre Signale und ausgewählte Luftbewegungen in einer laufenden Einsatzansicht.</p>
+            <p id="brand-mark" class="brand-mark">Schnüddels Media</p>
+            <h1 id="app-title">Situation Room</h1>
+            <p id="sidebar-intro" class="sidebar-intro">Globale Lagekarte für Katastrophen, humanitäre Signale und ausgewählte Luftbewegungen in einer laufenden Einsatzansicht.</p>
           </div>
-          <button id="sidebar-close" class="icon-button" type="button" aria-label="Panel schließen">
-            ×
-          </button>
+          <div class="sidebar-header__controls">
+            <div id="language-switch" class="language-switch" role="group" aria-label="Language switch">
+              <button id="lang-switch-de" class="language-switch__button" type="button" data-language="de">DE</button>
+              <button id="lang-switch-en" class="language-switch__button" type="button" data-language="en">EN</button>
+            </div>
+            <button id="sidebar-close" class="icon-button" type="button" aria-label="Panel schließen">
+              ×
+            </button>
+          </div>
         </div>
 
         <section class="sidebar-section">
           <div class="section-header">
-            <h2>Lagebild</h2>
+            <h2 id="stats-section-title">Lagebild</h2>
             <button id="refresh-button" class="text-button" type="button">Aktualisieren</button>
           </div>
           <div id="status-badge" class="status-badge">Initialisiere …</div>
@@ -52,7 +59,7 @@
       </aside>
 
       <main class="center-stage">
-        <section class="monitor-stage" aria-label="Situationskarte">
+        <section id="monitor-stage" class="monitor-stage" aria-label="Situationskarte">
           <div class="monitor-frame">
             <div class="monitor-screen">
               <div id="map" class="map-canvas" aria-label="Weltkarte"></div>
@@ -65,7 +72,7 @@
       <aside class="panel sources-panel">
         <section class="sources-panel__section">
           <div class="section-header">
-            <h2>Filter</h2>
+            <h2 id="filters-section-title">Filter</h2>
             <button id="reset-filters" class="text-button" type="button">Zurücksetzen</button>
           </div>
           <div id="filter-groups" class="filter-groups"></div>
@@ -73,7 +80,7 @@
 
         <section id="sources-section" class="sources-panel__section sources-panel__section--collapsible sources-panel__section--collapsed">
           <div class="section-header">
-            <h2>Quellen</h2>
+            <h2 id="sources-section-title">Quellen</h2>
             <button
               id="sources-collapse-toggle"
               class="text-button collapse-button"
@@ -92,7 +99,7 @@
     <section class="lower-deck">
       <section class="panel news-panel">
         <div class="section-header">
-          <h2>Wichtigste Meldungen</h2>
+          <h2 id="news-section-title">Wichtigste Meldungen</h2>
           <span id="event-count" class="section-meta">0</span>
         </div>
         <div id="event-list" class="event-list"></div>
@@ -100,8 +107,8 @@
 
       <section class="panel markets-panel">
         <div class="section-header">
-          <h2>Märkte</h2>
-          <span class="section-meta">Gold, BTC, Dollar, Euro, Leitindizes</span>
+          <h2 id="markets-section-title">Märkte</h2>
+          <span id="markets-section-meta" class="section-meta">Gold, BTC, Dollar, Euro, Leitindizes</span>
         </div>
         <div id="markets-grid" class="markets-grid"></div>
       </section>
@@ -109,8 +116,8 @@
 
     <footer class="app-footer">
       <div class="app-footer__brand">
-        <span>Situation Room</span>
-        <small>Operative Lageansicht</small>
+        <span id="footer-brand-title">Situation Room</span>
+        <small id="footer-brand-subtitle">Operative Lageansicht</small>
       </div>
       <div class="app-footer__links">
         <button id="legal-impressum" class="text-button legal-link-button" type="button">Impressum</button>
@@ -123,6 +130,6 @@
   </div>
 
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script type="module" src="./src/main.js?v=20260324a"></script>
+  <script type="module" src="./src/main.js?v=20260325c"></script>
 </body>
 </html>

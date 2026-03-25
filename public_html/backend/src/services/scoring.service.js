@@ -9,7 +9,10 @@ const SOURCE_CONFIDENCE_SCORES = {
   acled: 0.78,
   reliefweb: 0.62,
   gdelt: 0.44,
-  opensky: 0.58
+  opensky: 0.58,
+  ap: 0.9,
+  reuters: 0.92,
+  bbc: 0.86
 };
 
 const TYPE_BASE_SEVERITY = {
@@ -135,6 +138,13 @@ function calculateAttentionScore(eventData) {
     const hasCountry = Array.isArray(eventData.data?.country) && eventData.data.country.length > 0;
     const hasDisaster = Array.isArray(eventData.data?.disaster) && eventData.data.disaster.length > 0;
     return clampScore(0.35 + (hasCountry ? 0.15 : 0) + (hasDisaster ? 0.2 : 0));
+  }
+
+  if (['ap', 'reuters', 'bbc'].includes(eventData.source)) {
+    const trustBase = Number(eventData.data?.trust_base_score || 0.75);
+    const hasDescription = String(eventData.data?.description || '').trim().length > 60;
+    const hasPublisherMeta = Boolean(eventData.data?.editorial_tier || eventData.data?.ownership_type);
+    return clampScore((trustBase * 0.55) + (hasDescription ? 0.2 : 0) + (hasPublisherMeta ? 0.15 : 0));
   }
 
   return 0;

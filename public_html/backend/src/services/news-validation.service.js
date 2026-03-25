@@ -2,8 +2,8 @@ const eventRepository = require('../repositories/event.repository');
 const eventTagRepository = require('../repositories/event-tag.repository');
 const eventValidationRepository = require('../repositories/event-validation.repository');
 
-const SECONDARY_SOURCES = new Set(['gdelt', 'reliefweb']);
-const PRIMARY_SOURCES = new Set(['usgs', 'gdacs', 'noaa_tsunami', 'firms', 'opensky', 'acled']);
+const SECONDARY_SOURCES = new Set(['gdelt', 'reliefweb', 'ap', 'reuters', 'bbc']);
+const PRIMARY_SOURCES = new Set(['usgs', 'gdacs', 'noaa_tsunami', 'firms', 'opensky']);
 const VALIDATION_TAG_SOURCE = 'validation_prep';
 const VALIDATION_WINDOW_HOURS = 72;
 const MIN_MATCH_SCORE = 0.35;

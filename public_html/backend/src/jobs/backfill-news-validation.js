@@ -24,7 +24,7 @@ async function main() {
           SELECT id, title, type, source, lat, lon, magnitude, depth, affected_population, timestamp, url, data, score, updated_at
           FROM events
           WHERE id > ?
-            AND source NOT IN ('gdelt', 'reliefweb')
+            AND source NOT IN ('gdelt', 'reliefweb', 'ap', 'reuters', 'bbc', 'acled')
           ORDER BY id ASC
           LIMIT ?
         `,

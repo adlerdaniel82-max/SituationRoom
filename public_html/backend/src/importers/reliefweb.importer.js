@@ -24,6 +24,7 @@ async function run() {
           'id',
           'title',
           'body-html',
+          'language',
           'source',
           'country',
           'primary_country',
@@ -58,6 +59,8 @@ async function run() {
         url: buildReportUrl(item),
         data: {
           id: item.id,
+          content_language: extractPrimaryLanguage(report),
+          content_languages: extractLanguages(report),
           ...report
         }
       };
@@ -103,6 +106,18 @@ function buildReportUrl(item) {
   }
 
   return item.href || null;
+}
+
+function extractPrimaryLanguage(report) {
+  const languages = extractLanguages(report);
+  return languages[0] || null;
+}
+
+function extractLanguages(report) {
+  const values = Array.isArray(report.language) ? report.language : report.language ? [report.language] : [];
+  return values
+    .map((entry) => String(entry?.code || entry?.name || entry || '').trim())
+    .filter(Boolean);
 }
 
 module.exports = { run };

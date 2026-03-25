@@ -1,5 +1,8 @@
 const { query } = require('../config/db');
+const { HIDDEN_SOURCE_IDS } = require('../config/sources');
 const hashService = require('../utils/hash');
+
+const hiddenSourceList = Array.from(HIDDEN_SOURCE_IDS);
 
 async function list(options = {}) {
   const { type, source, minScore, startDate, endDate, bbox, limit = 100, offset = 0 } = options;
@@ -8,6 +11,7 @@ async function list(options = {}) {
     SELECT *
     FROM events
     WHERE 1=1
+      ${hiddenSourceList.length ? `AND source NOT IN (${hiddenSourceList.map(() => '?').join(', ')})` : ''}
       AND NOT (
         source = 'firms'
         AND type = 'fire'
@@ -19,7 +23,7 @@ async function list(options = {}) {
         ) >= 3
       )
   `;
-  const params = [];
+  const params = [...hiddenSourceList];
   const types = Array.isArray(type)
     ? type
     : String(type || '')
@@ -102,6 +106,7 @@ async function getNearby(lat, lon, radiusKm, limit = 50) {
     FROM events
     WHERE lat BETWEEN ? AND ?
       AND lon BETWEEN ? AND ?
+      ${hiddenSourceList.length ? `AND source NOT IN (${hiddenSourceList.map(() => '?').join(', ')})` : ''}
       AND NOT (
         source = 'firms'
         AND type = 'fire'
@@ -121,6 +126,7 @@ async function getNearby(lat, lon, radiusKm, limit = 50) {
     lat, lon, lat,
     lat - latOffset, lat + latOffset,
     lon - lonOffset, lon + lonOffset,
+    ...hiddenSourceList,
     radiusKm, limit
   ]);
 }
@@ -139,7 +145,9 @@ async function getStats() {
       COUNT(CASE WHEN score >= 0.4 AND score < 0.6 THEN 1 END) as medium,
       COUNT(CASE WHEN score < 0.4 THEN 1 END) as low
     FROM events
-    WHERE NOT (
+    WHERE 1=1
+      ${hiddenSourceList.length ? `AND source NOT IN (${hiddenSourceList.map(() => '?').join(', ')})` : ''}
+      AND NOT (
       source = 'firms'
       AND type = 'fire'
       AND (
@@ -150,7 +158,7 @@ async function getStats() {
       ) >= 3
     )
   `;
-  const rows = await query(sql);
+  const rows = await query(sql, hiddenSourceList);
   return rows[0];
 }
 

@@ -7,6 +7,8 @@ Situation Room aggregates data from multiple crisis monitoring sources. Each sou
 Current bootstrap files:
 - `public_html/sql/schema.sql` creates tables and inserts the current default source definitions
 - `public_html/sql/seed_sources.sql` can be rerun idempotently to realign names, intervals, enabled flags and JSON config
+- `ACLED` remains in code and schema, but is intentionally hidden from operational UI/API output
+- `AP` remains in code, but is intentionally retired from operational UI/API output
 
 ## Sources
 
@@ -63,7 +65,7 @@ Current bootstrap files:
 
 **Type:** Humanitarian  
 **ID:** `gdelt`  
-**Default Interval:** 30 minutes
+**Default Interval:** 3 hours
 
 **API:** https://api.gdeltproject.org/api/v2/doc/doc
 
@@ -77,12 +79,16 @@ Current bootstrap files:
 - Global crisis-related news attention
 - Top article bundles per country
 - Distinct domains and latest article time
+- Article language metadata per bundle where available
 
 **Notes:**
 - Current importer uses the GDELT DOC API in `artlist` mode with a broad crisis query window.
 - Articles are grouped by `sourcecountry` and turned into one attention marker per country.
 - Marker coordinates are resolved via country centroids, so this layer represents media attention geography, not verified incident coordinates.
 - The frontend shows `GDELT` as a selectable source, but it is not enabled by default in fresh browser filter states.
+- On repeated `429` rate limits, the importer falls back to the latest cached raw snapshot.
+- The current runtime groups countries from even single matching articles to avoid collapsing the layer to only a handful of countries during rate-limited periods.
+- GDELT article titles remain in their original language; the importer stores language metadata but does not translate article text.
 
 ---
 
@@ -135,13 +141,78 @@ Current bootstrap files:
 
 ---
 
+### BBC News
+
+**Type:** Humanitarian / News  
+**ID:** `bbc`  
+**Default Interval:** 30 minutes
+
+**Feeds:**
+- `https://feeds.bbci.co.uk/news/world/rss.xml`
+- `https://feeds.bbci.co.uk/news/uk/rss.xml`
+- `https://feeds.bbci.co.uk/news/business/rss.xml`
+- `https://feeds.bbci.co.uk/news/politics/rss.xml`
+- `https://feeds.bbci.co.uk/news/health/rss.xml`
+- `https://feeds.bbci.co.uk/news/science_and_environment/rss.xml`
+- `https://feeds.bbci.co.uk/news/technology/rss.xml`
+
+**Role in Situation Room:**
+- Secondary validation source
+- Optional map layer
+- News-style humanitarian context source
+
+**Notes:**
+- Enabled by default on the backend, but not enabled by default in fresh browser source filters.
+- The importer resolves coarse event coordinates via conservative country/territory centroid detection.
+- Items without a plausible country/territory match are skipped instead of being inserted at `0,0`.
+- The feed itself is English-language and is stored with `content_language = en-gb`.
+
+---
+
+### AP News
+
+**Type:** Humanitarian / News  
+**ID:** `ap`  
+**Default Interval:** 30 minutes
+
+**Feed:** `https://apnews.com/rss`
+
+**Default State:** retired / hidden
+
+**Notes:**
+- Integrated in code, but currently not used operationally.
+- The previously tested public RSS endpoint is no longer reliable enough for production use.
+- The importer uses the same conservative centroid resolution as `BBC`.
+
+---
+
+### Reuters
+
+**Type:** Humanitarian / News  
+**ID:** `reuters`  
+**Default Interval:** 30 minutes
+
+**Feeds:**
+- `https://www.reutersagency.com/feed/?best-topics=world&post_type=best`
+- `https://www.reutersagency.com/feed/?post_type=best&best-topics=breakingviews`
+
+**Default State:** disabled
+
+**Notes:**
+- Integrated as a prepared secondary news source.
+- Current feed access still needs operational verification before activation.
+- The importer uses the same conservative centroid resolution as `BBC`.
+- Reuters items are treated as original-language content and currently prepared as English-language feed data.
+
+---
+
 ### ACLED (Armed Conflict Location & Event Data)
 
 **Type:** Conflict  
 **ID:** `acled`  
 **Default Interval:** 60 minutes
 
-**Default State:** disabled until API access is clarified
+**Default State:** disabled and operationally hidden
 
 **API:** https://acleddata.com/api/acled/read
 
@@ -160,11 +231,9 @@ Current bootstrap files:
 
 **Notes:**
 - Importer requests a Bearer token from `https://acleddata.com/oauth/token`
-- Access token lifetime is documented as 24 hours; refresh token lifetime as 14 days
 - Login is prepared with primary and alternate username fallback via `ACLED_USERNAME` and `ACLED_ALT_USERNAME`
-- The source stays disabled by default until ACLED confirms API data access
-- After approval, activation only requires enabling the source and running `run-acled.js`
-- `public_html/sql/enable_acled.sql` exists as a simple activation helper for the DB flag
+- The source remains in code, but is intentionally hidden from operational UI/API output.
+- Current blocker is the unavailable paid API license.
 
 ---
 
@@ -191,6 +260,7 @@ Current bootstrap files:
 - The importer currently uses `POST /v2/reports?appname=...` with `preset=latest` and `profile=list`.
 - The currently configured approved `appname` is `DAdler-schnueddelssituationroom2026-me509`.
 - ReliefWeb reports are also used as a secondary validation source for primary incidents when title/country/time signals align.
+- Where ReliefWeb exposes report language metadata, it is preserved as `content_language` / `content_languages`; report text itself remains untranslated.
 
 ---
 
@@ -236,7 +306,7 @@ Current bootstrap files:
 1. Create importer module in `backend/src/importers/`
 2. Add source configuration to `seed_sources.sql`
 3. Register in `source-runner.service.js`
-4. Add cron job to `crontab.example`
+4. Add job runner under `backend/src/jobs/`
 5. Update frontend filters
 
 ### Importer Template

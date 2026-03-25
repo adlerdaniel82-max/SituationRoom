@@ -9,14 +9,13 @@ Aktueller Funktionsstand:
 - Node-Backend unter `public_html/backend/`
 - MariaDB als Primärspeicher
 - Live-Frontend mit MapLibre, Viewport-Fetch, Filtern, WebSocket-Updates und Detailmodals
-- eigenes Meldungsfenster für GDELT-verifizierte Nachrichtenhinweise
+- eigenes Meldungsfenster für priorisierte News aus `BBC`, `GDELT`, `ReliefWeb` und optional `Reuters`
 - mehrteiliges Scoring pro Event mit `source_confidence`, `event_severity`, `validation_score` und `attention_score`
 - Nginx-Setup produktiv auf `situation.schnueddels.de`
 
 Wichtige Einschränkungen:
-- Keine echte Migrationsstrategie, nur SQL-Snapshots und Seeds
 - Keine belastbare Test-Suite
-- Einige Quellen sind noch MVP-artig oder extern blockiert, vor allem `ACLED`
+- Einige Quellen sind noch MVP-artig oder extern blockiert, vor allem `Reuters`
 
 ## Datenquellen
 
@@ -28,9 +27,14 @@ Aktuell integriert:
 - `FIRMS`
 - `ReliefWeb`
 - `OpenSky`
+- `BBC News`
 
 Vorläufig deaktiviert:
-- `ACLED`
+- `Reuters`
+
+Archiviert / operativ ausgeblendet:
+- `ACLED` (Lizenzkosten / kein nutzbarer API-Zugang)
+- `AP News` (keine verlässliche RSS-Quelle mehr)
 
 Quelle-Details und Auth-Hinweise stehen in:
 - `public_html/docs/sources.md`
@@ -52,10 +56,13 @@ Frontend:
 - `public_html/frontend/src/styles/app.css`
 
 Datenbank:
+- Migrationen: `public_html/sql/migrations/`
 - Schema: `public_html/sql/schema.sql`
 - Historie: `public_html/sql/history_tables.sql`
 - Views: `public_html/sql/views.sql`
 - Source-Seeds: `public_html/sql/seed_sources.sql`
+
+`schema.sql` ist ein Snapshot des aktuellen Zielschemas. Operative DB-Aenderungen sollen kuenftig ueber versionierte Migrationen laufen.
 
 ## Laufzeit und Konfiguration
 
@@ -75,10 +82,6 @@ Wichtige Variablen:
 - `RELIEFWEB_APPNAME`
 - `OPENSKY_CLIENT_ID`
 - `OPENSKY_CLIENT_SECRET`
-- `ACLED_USERNAME`
-- `ACLED_ALT_USERNAME`
-- `ACLED_PASSWORD`
-- `ACLED_CLIENT_ID`
 - `GDELT_QUERY`
 - `GDELT_TIMESPAN`
 - `GDELT_MAX_RECORDS`
@@ -89,6 +92,24 @@ Wichtige Variablen:
 - `MAPTILER_MAP_ID`
 - `MAPTILER_LABEL_LANGUAGE`
 - `MAPTILER_LABEL_FALLBACK`
+
+## Migrationen
+
+Versionierte Datenbank-Aenderungen liegen unter:
+- `public_html/sql/migrations/`
+
+Runner:
+- `npm --prefix public_html/backend run db:migrate`
+- `npm --prefix public_html/backend run db:baseline`
+
+Verhalten:
+- `db:migrate` fuehrt nur noch nicht eingetragene Migrationen aus
+- `db:baseline` markiert den aktuellen Bestand als bereits angewendet, ohne SQL erneut auszufuehren
+- der Status liegt in der Tabelle `schema_migrations`
+
+Fuer bestehende Installationen:
+1. einmal `npm --prefix public_html/backend run db:baseline`
+2. danach alle neuen Aenderungen nur noch als neue Migration anfuegen
 
 ## API
 
@@ -123,18 +144,18 @@ Importjobs:
 - `node public_html/backend/src/jobs/run-firms.js`
 - `node public_html/backend/src/jobs/run-reliefweb.js`
 - `node public_html/backend/src/jobs/run-opensky.js`
+- `node public_html/backend/src/jobs/run-bbc.js`
+- `node public_html/backend/src/jobs/run-ap.js`
+- `node public_html/backend/src/jobs/run-reuters.js`
 - `node public_html/backend/src/jobs/run-acled.js`
 
 Wartungsjobs:
 - `node public_html/backend/src/jobs/backfill-scoring.js`
 - `node public_html/backend/src/jobs/backfill-news-validation.js`
 
-ACLED ist technisch vorbereitet, aber standardmäßig deaktiviert. Nach Freischaltung reicht der Aktivierungsschritt über die Quelle selbst oder per SQL-Helper:
+`BBC` ist als zusätzliche sekundäre News-/Validierungsquelle aktiv. `Reuters` ist bereits integriert, bleibt aber vorerst deaktiviert, bis Feed-Zugänge und stabile Ortsauflösung fachlich bestätigt sind. `AP` ist operativ stillgelegt, weil derzeit keine verlässliche RSS-Quelle mehr verfügbar ist.
 
-```bash
-./private/scripts/db_run_sql.sh public_html/sql/enable_acled.sql
-node public_html/backend/src/jobs/run-acled.js
-```
+`ACLED` bleibt im Codebestand erhalten, ist operativ aber ausgeblendet und deaktiviert, weil der benötigte API-Zugang aktuell nicht finanzierbar ist.
 
 Die Jobs verwenden Lockfiles gegen parallele Doppelläufe.
 
@@ -176,6 +197,8 @@ Der aktuelle Desktop-Aufbau:
 
 Die Basiskarte kann mit MapTiler `dataviz-v4-dark` und deutscher Primärsprache betrieben werden, wenn `MAPTILER_API_KEY` gesetzt ist.
 
-Das Panel `Wichtigste Meldungen` ist aktuell bewusst vom Kartenfilter entkoppelt und zeigt nur `GDELT`-basierte Attention-Meldungen im aktuellen Kartenausschnitt.
+Das Panel `Wichtigste Meldungen` ist aktuell bewusst vom Kartenfilter entkoppelt und zeigt priorisierte News-Ereignisse aus `BBC`, `GDELT`, `ReliefWeb` und optional `Reuters` im aktuellen Kartenausschnitt.
+
+Die UI ist bereits auf `Deutsch / Englisch` umschaltbar. Bei News-Artikeln und Reports ist dagegen derzeit nur eine Lokalisierung der umgebenden Oberfläche realistisch. Die eigentlichen Titel, Beschreibungen und Quelltexte kommen in der Regel nur in ihrer Originalsprache aus dem Feed oder der API. Deshalb speichert das System für Newsquellen jetzt primär Sprachmetadaten wie `content_language` oder `content_languages`; fuer fremdsprachige Meldungen gibt es im Detailmodal aktuell den pragmatischen Link `Uebersetzt oeffnen` ueber Google Translate. Eine echte integrierte Uebersetzung der Artikel wuerde spaeter einen separaten Uebersetzungsdienst oder mehrsprachige Quellfeeds erfordern.
 
 FIRMS-Feuer können im Detailmodal als mutmaßliche Industrieanlage gemeldet werden. Ab drei unterschiedlichen Meldungen wird der Treffer in Karten- und Listenansichten automatisch ausgeblendet, bleibt aber per Direktaufruf des Events abrufbar.

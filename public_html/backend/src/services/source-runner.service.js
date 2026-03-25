@@ -11,7 +11,10 @@ const importers = {
   firms: require('../importers/firms.importer'),
   acled: require('../importers/acled.importer'),
   reliefweb: require('../importers/reliefweb.importer'),
-  opensky: require('../importers/opensky.importer')
+  opensky: require('../importers/opensky.importer'),
+  ap: require('../importers/ap.importer'),
+  reuters: require('../importers/reuters.importer'),
+  bbc: require('../importers/bbc.importer')
 };
 
 const runningJobs = new Map();

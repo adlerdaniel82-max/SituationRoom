@@ -1,37 +1,409 @@
-const MAP_STYLE = {
-  version: 8,
-  sources: {
-    osm: {
-      type: 'raster',
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      attribution: '&copy; OpenStreetMap-Mitwirkende'
+const SUPPORTED_LANGUAGES = ['de', 'en'];
+const DEFAULT_LANGUAGE = 'de';
+const LANGUAGE_STORAGE_KEY = 'situation-room.language.v1';
+
+const I18N = {
+  de: {
+    meta: {
+      title: 'Situation Room',
+      description: 'Globale Lagekarte mit Live-Ereignissen, Clustern, Filtern und Quellenstatus.'
+    },
+    ui: {
+      sidebarToggle: 'Lagepanel',
+      intro: 'Globale Lagekarte für Katastrophen, humanitäre Signale und ausgewählte Luftbewegungen in einer laufenden Einsatzansicht.',
+      languageSwitch: 'Sprache wechseln',
+      languageGerman: 'Deutsch',
+      languageEnglish: 'Englisch',
+      statsSection: 'Lagebild',
+      filtersSection: 'Filter',
+      sourcesSection: 'Quellen',
+      importantNewsSection: 'Wichtigste Meldungen',
+      marketsSection: 'Märkte',
+      marketsMeta: 'Gold, BTC, Dollar, Euro, Leitindizes',
+      footerSubtitle: 'Operative Lageansicht',
+      refresh: 'Aktualisieren',
+      reset: 'Zurücksetzen',
+      show: 'Einblenden',
+      hide: 'Ausblenden',
+      types: 'Typen',
+      sources: 'Quellen',
+      minScore: 'Mindestscore',
+      noSources: 'Keine Quellen geladen.',
+      sourceStatusUnavailable: 'Quellenstatus nicht verfügbar.',
+      noMarkets: 'Keine Marktdaten geladen.',
+      noStats: 'Statistiken nicht verfügbar.',
+      noImportantEvents: 'Keine relevanten News-Meldungen im aktuellen Kartenausschnitt.',
+      mapAria: 'Situationskarte',
+      worldMapAria: 'Weltkarte',
+      closePanel: 'Panel schließen',
+      closeDetail: 'Detailansicht schließen',
+      legalImprint: 'Impressum',
+      legalPrivacy: 'Datenschutz',
+      originalPage: 'Originalseite öffnen',
+      focusMap: 'Auf Karte fokussieren',
+      openSource: 'Quelle öffnen',
+      openTranslated: 'Übersetzt öffnen',
+      reportIndustrial: 'Als Industrieanlage markieren'
+    },
+    status: {
+      initializing: 'Initialisiere …',
+      loadingEvents: 'Lade Ereignisse …',
+      liveConnected: 'Live verbunden',
+      connecting: 'Verbinde Live-Stream …',
+      disconnected: 'Live getrennt, neuer Verbindungsversuch …',
+      loadFailed: 'Laden fehlgeschlagen',
+      viewportEvents: '{count} Ereignisse im Sichtfeld'
+    },
+    stats: {
+      total: 'Gesamt',
+      critical: 'Kritisch',
+      high: 'Hoch',
+      medium: 'Mittel',
+      low: 'Niedrig'
+    },
+    filters: {
+      type: 'Typ',
+      source: 'Quelle'
+    },
+    detail: {
+      eyebrowEvent: 'Ereignisdetail',
+      eyebrowLegal: 'Rechtliches',
+      type: 'Typ',
+      source: 'Quelle',
+      language: 'Sprache',
+      time: 'Zeit',
+      score: 'Score',
+      coordinates: 'Koordinaten',
+      magnitude: 'Magnitude',
+      industrialHint: 'Wenn mehrere Nutzer diesen Treffer als Industrieanlage markieren, wird er automatisch aus der Karte ausgeblendet.',
+      industrialSaving: 'Meldung wird gespeichert …',
+      industrialStored: 'Markierung gespeichert. {count}/{threshold} Meldungen erreicht.',
+      industrialAlreadyStored: 'Dieser Browser hat den Treffer bereits markiert. Aktuell {count}/{threshold}.',
+      industrialHidden: 'Der Treffer ist jetzt als Industrieanlage ausgeblendet.',
+      industrialFailed: 'Markierung konnte nicht gespeichert werden.'
+    },
+    eventMeta: {
+      justNow: 'gerade eben',
+      hoursAgo: 'vor {count} h',
+      daysAgo: 'vor {count} d'
+    },
+    sourceState: {
+      on: 'aktiv',
+      off: 'aus'
+    },
+    sourceHealth: {
+      healthy: 'stabil',
+      overdue: 'überfällig',
+      error: 'fehlerhaft',
+      disabled: 'deaktiviert',
+      never_run: 'nie gelaufen'
+    },
+    rawSourceStatus: {
+      ok: 'ok',
+      running: 'läuft',
+      error: 'Fehler',
+      disabled: 'Deaktiviert',
+      ready: 'Bereit'
+    },
+    markets: {
+      noTime: 'keine Zeit',
+      notAvailable: 'n/v'
+    },
+    legal: {
+      impressum: {
+        title: 'Impressum',
+        html: `
+          <section>
+            <h3>Angaben gemäß § 5 TMG</h3>
+            <p>Daniel Adler<br>Rembrandtring 14<br>63110 Rodgau<br>Deutschland</p>
+          </section>
+          <section>
+            <h3>Kontakt</h3>
+            <p>Siehe Originalseite auf schnueddels.de.</p>
+          </section>
+          <section>
+            <h3>Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV</h3>
+            <p>Daniel Adler<br>Rembrandtring 14<br>63110 Rodgau</p>
+          </section>
+          <section>
+            <h3>Haftung für Inhalte</h3>
+            <p>Als Diensteanbieter sind wir gemäß § 7 Abs. 1 TMG für eigene Inhalte auf diesen Seiten nach den allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 TMG sind wir jedoch nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen.</p>
+          </section>
+          <section>
+            <h3>Haftung für Links</h3>
+            <p>Diese Website enthält gegebenenfalls Links zu externen Websites Dritter, auf deren Inhalte kein Einfluss besteht. Für diese fremden Inhalte wird keine Gewähr übernommen.</p>
+          </section>
+        `
+      },
+      privacy: {
+        title: 'Datenschutzerklärung',
+        html: `
+          <section>
+            <h3>Datenschutz auf einen Blick</h3>
+            <p>Die Datenschutzerklärung von schnueddels.de beschreibt die Verarbeitung personenbezogener Daten bei der Nutzung der Website und ihrer Dienste.</p>
+          </section>
+          <section>
+            <h3>Verantwortliche Stelle</h3>
+            <p>Verantwortliche Stelle ist laut Originalseite Daniel Adler, Rembrandtring 14, 63110 Rodgau, Deutschland.</p>
+          </section>
+          <section>
+            <h3>Erhobene Daten</h3>
+            <p>Je nach Nutzung können Server-Logdaten, technische Zugriffsdaten und bei Formular- oder Account-Nutzung weitere personenbezogene Angaben verarbeitet werden.</p>
+          </section>
+          <section>
+            <h3>Rechte der betroffenen Personen</h3>
+            <ul>
+              <li>Auskunft über gespeicherte Daten</li>
+              <li>Berichtigung unrichtiger Daten</li>
+              <li>Löschung oder Einschränkung der Verarbeitung</li>
+              <li>Widerspruch gegen die Verarbeitung</li>
+            </ul>
+          </section>
+          <section>
+            <h3>Vollständige Fassung</h3>
+            <p>Für die vollständige, rechtsverbindliche Datenschutzerklärung siehe die Originalseite auf schnueddels.de.</p>
+          </section>
+        `
+      }
+    },
+    types: {
+      earthquake: 'Erdbeben',
+      tsunami: 'Tsunami',
+      disaster: 'Katastrophen',
+      fire: 'Brände',
+      conflict: 'Konflikte',
+      humanitarian: 'Humanitär',
+      aviation: 'Luftfahrt'
     }
   },
-  layers: [
-    {
-      id: 'osm',
-      type: 'raster',
-      source: 'osm'
+  en: {
+    meta: {
+      title: 'Situation Room',
+      description: 'Global situation map with live events, clusters, filters, and source status.'
+    },
+    ui: {
+      sidebarToggle: 'Situation panel',
+      intro: 'Global live map for disasters, humanitarian signals, and selected air movements in an ongoing operational view.',
+      languageSwitch: 'Switch language',
+      languageGerman: 'German',
+      languageEnglish: 'English',
+      statsSection: 'Situation overview',
+      filtersSection: 'Filters',
+      sourcesSection: 'Sources',
+      importantNewsSection: 'Top reports',
+      marketsSection: 'Markets',
+      marketsMeta: 'Gold, BTC, Dollar, Euro, major indices',
+      footerSubtitle: 'Operational overview',
+      refresh: 'Refresh',
+      reset: 'Reset',
+      show: 'Show',
+      hide: 'Hide',
+      types: 'Types',
+      sources: 'Sources',
+      minScore: 'Minimum score',
+      noSources: 'No sources loaded.',
+      sourceStatusUnavailable: 'Source status unavailable.',
+      noMarkets: 'No market data loaded.',
+      noStats: 'Statistics unavailable.',
+      noImportantEvents: 'No relevant news reports in the current map view.',
+      mapAria: 'Situation map',
+      worldMapAria: 'World map',
+      closePanel: 'Close panel',
+      closeDetail: 'Close detail view',
+      legalImprint: 'Imprint',
+      legalPrivacy: 'Privacy',
+      originalPage: 'Open original page',
+      focusMap: 'Focus on map',
+      openSource: 'Open source',
+      openTranslated: 'Open translated',
+      reportIndustrial: 'Mark as industrial site'
+    },
+    status: {
+      initializing: 'Initializing …',
+      loadingEvents: 'Loading events …',
+      liveConnected: 'Live connected',
+      connecting: 'Connecting live stream …',
+      disconnected: 'Live disconnected, retrying …',
+      loadFailed: 'Loading failed',
+      viewportEvents: '{count} events in view'
+    },
+    stats: {
+      total: 'Total',
+      critical: 'Critical',
+      high: 'High',
+      medium: 'Medium',
+      low: 'Low'
+    },
+    filters: {
+      type: 'Type',
+      source: 'Source'
+    },
+    detail: {
+      eyebrowEvent: 'Event detail',
+      eyebrowLegal: 'Legal',
+      type: 'Type',
+      source: 'Source',
+      language: 'Language',
+      time: 'Time',
+      score: 'Score',
+      coordinates: 'Coordinates',
+      magnitude: 'Magnitude',
+      industrialHint: 'If multiple users mark this detection as an industrial site, it will automatically be hidden from the map.',
+      industrialSaving: 'Saving report …',
+      industrialStored: 'Report saved. {count}/{threshold} reports reached.',
+      industrialAlreadyStored: 'This browser already reported this detection. Currently {count}/{threshold}.',
+      industrialHidden: 'This detection is now hidden as an industrial site.',
+      industrialFailed: 'The report could not be saved.'
+    },
+    eventMeta: {
+      justNow: 'just now',
+      hoursAgo: '{count} h ago',
+      daysAgo: '{count} d ago'
+    },
+    sourceState: {
+      on: 'on',
+      off: 'off'
+    },
+    sourceHealth: {
+      healthy: 'healthy',
+      overdue: 'overdue',
+      error: 'error',
+      disabled: 'disabled',
+      never_run: 'never run'
+    },
+    rawSourceStatus: {
+      ok: 'ok',
+      running: 'running',
+      error: 'Error',
+      disabled: 'Disabled',
+      ready: 'Ready'
+    },
+    markets: {
+      noTime: 'no time',
+      notAvailable: 'n/a'
+    },
+    legal: {
+      impressum: {
+        title: 'Imprint',
+        html: `
+          <section>
+            <h3>Information according to § 5 TMG</h3>
+            <p>Daniel Adler<br>Rembrandtring 14<br>63110 Rodgau<br>Germany</p>
+          </section>
+          <section>
+            <h3>Contact</h3>
+            <p>See the original page on schnueddels.de.</p>
+          </section>
+          <section>
+            <h3>Responsible for content according to § 55 Abs. 2 RStV</h3>
+            <p>Daniel Adler<br>Rembrandtring 14<br>63110 Rodgau</p>
+          </section>
+          <section>
+            <h3>Liability for content</h3>
+            <p>As a service provider, we are responsible for our own content on these pages under general law. However, under §§ 8 to 10 TMG, we are not obliged to monitor transmitted or stored third-party information.</p>
+          </section>
+          <section>
+            <h3>Liability for links</h3>
+            <p>This website may contain links to external third-party websites. We have no influence over their content and therefore assume no liability for it.</p>
+          </section>
+        `
+      },
+      privacy: {
+        title: 'Privacy policy',
+        html: `
+          <section>
+            <h3>Privacy at a glance</h3>
+            <p>The privacy policy of schnueddels.de describes the processing of personal data when using the website and its services.</p>
+          </section>
+          <section>
+            <h3>Controller</h3>
+            <p>According to the original page, the responsible controller is Daniel Adler, Rembrandtring 14, 63110 Rodgau, Germany.</p>
+          </section>
+          <section>
+            <h3>Collected data</h3>
+            <p>Depending on usage, server log data, technical access data, and additional personal information for forms or account use may be processed.</p>
+          </section>
+          <section>
+            <h3>Rights of data subjects</h3>
+            <ul>
+              <li>Access to stored data</li>
+              <li>Correction of inaccurate data</li>
+              <li>Deletion or restriction of processing</li>
+              <li>Objection to processing</li>
+            </ul>
+          </section>
+          <section>
+            <h3>Full version</h3>
+            <p>For the complete legally binding privacy policy, see the original page on schnueddels.de.</p>
+          </section>
+        `
+      }
+    },
+    types: {
+      earthquake: 'Earthquake',
+      tsunami: 'Tsunami',
+      disaster: 'Disaster',
+      fire: 'Fire',
+      conflict: 'Conflict',
+      humanitarian: 'Humanitarian',
+      aviation: 'Aviation'
     }
-  ]
+  }
 };
+
+function createOsmStyle(language) {
+  return {
+    version: 8,
+    sources: {
+      osm: {
+        type: 'raster',
+        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        tileSize: 256,
+        attribution: language === 'en' ? '&copy; OpenStreetMap contributors' : '&copy; OpenStreetMap-Mitwirkende'
+      }
+    },
+    layers: [
+      {
+        id: 'osm',
+        type: 'raster',
+        source: 'osm'
+      }
+    ]
+  };
+}
 const DEFAULT_MAP_CONFIG = {
   map: {
     provider: 'osm',
     maptiler: null
   }
 };
-const IMPORTANT_EVENT_SOURCE = 'gdelt';
+const IMPORTANT_EVENT_SOURCES = ['bbc', 'gdelt', 'reliefweb', 'reuters'];
+const IMPORTANT_EVENT_LIMIT = 20;
+const LANGUAGE_NAME_TO_CODE = new Map([
+  ['arabic', 'ar'],
+  ['bengali', 'bn'],
+  ['chinese', 'zh'],
+  ['english', 'en'],
+  ['estonian', 'et'],
+  ['french', 'fr'],
+  ['indonesian', 'id'],
+  ['italian', 'it'],
+  ['japanese', 'ja'],
+  ['russian', 'ru'],
+  ['spanish', 'es'],
+  ['turkish', 'tr'],
+  ['ukrainian', 'uk'],
+  ['vietnamese', 'vi']
+]);
 
 const TYPE_OPTIONS = [
-  { value: 'earthquake', label: 'Erdbeben' },
-  { value: 'tsunami', label: 'Tsunami' },
-  { value: 'disaster', label: 'Katastrophen' },
-  { value: 'fire', label: 'Brände' },
-  { value: 'conflict', label: 'Konflikte' },
-  { value: 'humanitarian', label: 'Humanitär' },
-  { value: 'aviation', label: 'Luftfahrt' }
+  { value: 'earthquake' },
+  { value: 'tsunami' },
+  { value: 'disaster' },
+  { value: 'fire' },
+  { value: 'conflict' },
+  { value: 'humanitarian' },
+  { value: 'aviation' }
 ];
 
 const SOURCE_OPTIONS = [
@@ -40,9 +412,10 @@ const SOURCE_OPTIONS = [
   { value: 'gdelt', label: 'GDELT' },
   { value: 'noaa_tsunami', label: 'NOAA Tsunami' },
   { value: 'firms', label: 'FIRMS' },
-  { value: 'acled', label: 'ACLED' },
   { value: 'reliefweb', label: 'ReliefWeb' },
-  { value: 'opensky', label: 'OpenSky' }
+  { value: 'opensky', label: 'OpenSky' },
+  { value: 'reuters', label: 'Reuters' },
+  { value: 'bbc', label: 'BBC' }
 ];
 const SOURCE_MARKER_STYLES = {
   usgs: { shape: 'circle', fill: '#f26b38', stroke: '#fff5ea' },
@@ -53,70 +426,12 @@ const SOURCE_MARKER_STYLES = {
   acled: { shape: 'hexagon', fill: '#6f2f8f', stroke: '#f4e1ff' },
   reliefweb: { shape: 'square', fill: '#2e8a72', stroke: '#ddfff5' },
   opensky: { shape: 'cross', fill: '#2a6fd6', stroke: '#e5efff' },
+  ap: { shape: 'circle', fill: '#111111', stroke: '#f5f5f5' },
+  reuters: { shape: 'diamond', fill: '#ff6b00', stroke: '#fff0e0' },
+  bbc: { shape: 'square', fill: '#b80024', stroke: '#ffe2e8' },
   default: { shape: 'circle', fill: '#7b8794', stroke: '#f3f4f6' }
 };
-const LEGAL_CONTENT = {
-  impressum: {
-    title: 'Impressum',
-    eyebrow: 'Rechtliches',
-    sourceUrl: 'https://schnueddels.de/impressum.php',
-    html: `
-      <section>
-        <h3>Angaben gemäß § 5 TMG</h3>
-        <p>Daniel Adler<br>Rembrandtring 14<br>63110 Rodgau<br>Deutschland</p>
-      </section>
-      <section>
-        <h3>Kontakt</h3>
-        <p>Siehe Originalseite auf schnueddels.de.</p>
-      </section>
-      <section>
-        <h3>Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV</h3>
-        <p>Daniel Adler<br>Rembrandtring 14<br>63110 Rodgau</p>
-      </section>
-      <section>
-        <h3>Haftung für Inhalte</h3>
-        <p>Als Diensteanbieter sind wir gemäß § 7 Abs. 1 TMG für eigene Inhalte auf diesen Seiten nach den allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 TMG sind wir jedoch nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen.</p>
-      </section>
-      <section>
-        <h3>Haftung für Links</h3>
-        <p>Diese Website enthält gegebenenfalls Links zu externen Websites Dritter, auf deren Inhalte kein Einfluss besteht. Für diese fremden Inhalte wird keine Gewähr übernommen.</p>
-      </section>
-    `
-  },
-  privacy: {
-    title: 'Datenschutzerklärung',
-    eyebrow: 'Rechtliches',
-    sourceUrl: 'https://schnueddels.de/datenschutz.php',
-    html: `
-      <section>
-        <h3>Datenschutz auf einen Blick</h3>
-        <p>Die Datenschutzerklärung von schnueddels.de beschreibt die Verarbeitung personenbezogener Daten bei der Nutzung der Website und ihrer Dienste.</p>
-      </section>
-      <section>
-        <h3>Verantwortliche Stelle</h3>
-        <p>Verantwortliche Stelle ist laut Originalseite Daniel Adler, Rembrandtring 14, 63110 Rodgau, Deutschland.</p>
-      </section>
-      <section>
-        <h3>Erhobene Daten</h3>
-        <p>Je nach Nutzung können Server-Logdaten, technische Zugriffsdaten und bei Formular- oder Account-Nutzung weitere personenbezogene Angaben verarbeitet werden.</p>
-      </section>
-      <section>
-        <h3>Rechte der betroffenen Personen</h3>
-        <ul>
-          <li>Auskunft über gespeicherte Daten</li>
-          <li>Berichtigung unrichtiger Daten</li>
-          <li>Löschung oder Einschränkung der Verarbeitung</li>
-          <li>Widerspruch gegen die Verarbeitung</li>
-        </ul>
-      </section>
-      <section>
-        <h3>Vollständige Fassung</h3>
-        <p>Für die vollständige, rechtsverbindliche Datenschutzerklärung siehe die Originalseite auf schnueddels.de.</p>
-      </section>
-    `
-  }
-};
-
+const HIDDEN_SOURCE_IDS = new Set(['acled', 'ap']);
 const FILTER_STORAGE_KEY = 'situation-room.filters.v2';
 const LEGACY_FILTER_STORAGE_KEY = 'situation-room.filters.v1';
 const CLIENT_ID_STORAGE_KEY = 'situation-room.client-id';
@@ -124,18 +439,23 @@ const EMPTY_FILTER_SENTINEL = '__none__';
 const EVENT_RESPONSE_FORMAT = 'geojson';
 const DEFAULT_SOURCE_FILTERS = new Set(
   SOURCE_OPTIONS
-    .filter((entry) => entry.value !== 'gdelt')
+    .filter((entry) => !['gdelt', 'ap', 'reuters', 'bbc'].includes(entry.value))
     .map((entry) => entry.value)
 );
 const persistedFilters = loadStoredFilters();
 
 const state = {
   map: null,
+  mapConfig: DEFAULT_MAP_CONFIG,
+  baseMapStyle: null,
   events: [],
   importantEvents: [],
   eventFeatureCollection: emptyFeatureCollection(),
   sources: [],
   markets: [],
+  latestStats: null,
+  language: loadStoredLanguage(),
+  activeLegalKind: null,
   filters: {
     types: new Set(filterPersistedValues(persistedFilters?.types, TYPE_OPTIONS.map((entry) => entry.value)) || TYPE_OPTIONS.map((entry) => entry.value)),
     sources: new Set(filterPersistedValues(persistedFilters?.sources, SOURCE_OPTIONS.map((entry) => entry.value)) || DEFAULT_SOURCE_FILTERS),
@@ -158,10 +478,24 @@ const nodes = {
   sidebar: document.getElementById('sidebar'),
   sidebarToggle: document.getElementById('sidebar-toggle'),
   sidebarClose: document.getElementById('sidebar-close'),
+  languageSwitch: document.getElementById('language-switch'),
+  langSwitchDe: document.getElementById('lang-switch-de'),
+  langSwitchEn: document.getElementById('lang-switch-en'),
+  brandMark: document.getElementById('brand-mark'),
+  appTitle: document.getElementById('app-title'),
+  sidebarIntro: document.getElementById('sidebar-intro'),
+  statsSectionTitle: document.getElementById('stats-section-title'),
   refreshButton: document.getElementById('refresh-button'),
+  filtersSectionTitle: document.getElementById('filters-section-title'),
   resetFilters: document.getElementById('reset-filters'),
+  sourcesSectionTitle: document.getElementById('sources-section-title'),
   sourcesCollapseToggle: document.getElementById('sources-collapse-toggle'),
   sourcesSection: document.getElementById('sources-section'),
+  newsSectionTitle: document.getElementById('news-section-title'),
+  marketsSectionTitle: document.getElementById('markets-section-title'),
+  marketsSectionMeta: document.getElementById('markets-section-meta'),
+  footerBrandTitle: document.getElementById('footer-brand-title'),
+  footerBrandSubtitle: document.getElementById('footer-brand-subtitle'),
   legalImpressum: document.getElementById('legal-impressum'),
   legalPrivacy: document.getElementById('legal-privacy'),
   statsGrid: document.getElementById('stats-grid'),
@@ -170,15 +504,19 @@ const nodes = {
   eventList: document.getElementById('event-list'),
   sourcesList: document.getElementById('sources-list'),
   marketsGrid: document.getElementById('markets-grid'),
+  monitorStage: document.getElementById('monitor-stage'),
+  mapCanvas: document.getElementById('map'),
   detailBackdrop: document.getElementById('detail-backdrop'),
   detailPanel: document.getElementById('detail-panel'),
-  statusBadge: document.getElementById('status-badge')
+  statusBadge: document.getElementById('status-badge'),
+  metaDescription: document.getElementById('meta-description')
 };
 
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
   bindUi();
+  renderStaticText();
   syncSidebarToggle();
   await loadSources();
   const mapConfig = await loadMapConfig();
@@ -192,6 +530,8 @@ async function init() {
 function bindUi() {
   nodes.sidebarToggle.addEventListener('click', toggleSidebar);
   nodes.sidebarClose.addEventListener('click', closeSidebar);
+  nodes.langSwitchDe.addEventListener('click', () => setLanguage('de'));
+  nodes.langSwitchEn.addEventListener('click', () => setLanguage('en'));
   nodes.refreshButton.addEventListener('click', () => scheduleViewportRefresh(0));
   nodes.resetFilters.addEventListener('click', resetFilters);
   nodes.sourcesCollapseToggle.addEventListener('click', toggleSourcesPanel);
@@ -217,14 +557,15 @@ function bindUi() {
   syncSourcesPanel();
 }
 
-async function initMap(mapConfig) {
+async function initMap(mapConfig, view = null) {
+  state.mapConfig = mapConfig;
   const style = await resolveMapStyle(mapConfig);
 
   state.map = new maplibregl.Map({
     container: 'map',
     style,
-    center: [8, 24],
-    zoom: 2.1,
+    center: view?.center || [8, 24],
+    zoom: view?.zoom ?? 2.1,
     minZoom: 1.5,
     maxZoom: 14,
     attributionControl: false
@@ -246,9 +587,11 @@ async function initMap(mapConfig) {
 
 async function loadMapConfig() {
   try {
-    return await fetchJson('/api/config/public');
+    state.mapConfig = await fetchJson('/api/config/public');
+    return state.mapConfig;
   } catch (error) {
     console.error('Failed to load public config:', error);
+    state.mapConfig = DEFAULT_MAP_CONFIG;
     return DEFAULT_MAP_CONFIG;
   }
 }
@@ -256,7 +599,8 @@ async function loadMapConfig() {
 async function resolveMapStyle(mapConfig) {
   const maptiler = mapConfig?.map?.maptiler;
   if (!maptiler?.styleUrl) {
-    return MAP_STYLE;
+    state.baseMapStyle = createOsmStyle(state.language);
+    return createOsmStyle(state.language);
   }
 
   try {
@@ -271,10 +615,16 @@ async function resolveMapStyle(mapConfig) {
     }
 
     const style = await response.json();
-    return applyMapLanguage(style, maptiler.labelLanguage, maptiler.fallbackLanguage);
+    state.baseMapStyle = style;
+    return applyMapLanguage(
+      cloneJson(style),
+      getMapLabelLanguage(state.language, maptiler.labelLanguage),
+      getMapFallbackLanguage(state.language, maptiler.fallbackLanguage)
+    );
   } catch (error) {
     console.error('Failed to load MapTiler style, falling back to OSM:', error);
-    return MAP_STYLE;
+    state.baseMapStyle = createOsmStyle(state.language);
+    return createOsmStyle(state.language);
   }
 }
 
@@ -296,8 +646,8 @@ function applyMapLanguage(style, primaryLanguage = 'de', fallbackLanguage = 'en'
           ...layer.layout,
           'text-field': [
             'coalesce',
-            ['get', `name:${primaryLanguage}`],
-            ['get', `name:${fallbackLanguage}`],
+            buildNameExpression(primaryLanguage),
+            buildNameExpression(fallbackLanguage),
             ['get', 'name:latin'],
             ['get', 'name_int'],
             ['get', 'name']
@@ -308,6 +658,148 @@ function applyMapLanguage(style, primaryLanguage = 'de', fallbackLanguage = 'en'
   };
 
   return translatedStyle;
+}
+
+function buildNameExpression(language) {
+  if (!language || language === 'name') {
+    return ['get', 'name'];
+  }
+
+  return ['get', `name:${language}`];
+}
+
+function renderStaticText() {
+  document.documentElement.lang = state.language;
+  document.title = t('meta.title');
+  if (nodes.metaDescription) {
+    nodes.metaDescription.setAttribute('content', t('meta.description'));
+  }
+
+  nodes.brandMark.textContent = t('meta.title');
+  nodes.appTitle.textContent = t('meta.title');
+  nodes.sidebarIntro.textContent = t('ui.intro');
+  nodes.statsSectionTitle.textContent = t('ui.statsSection');
+  nodes.refreshButton.textContent = t('ui.refresh');
+  nodes.filtersSectionTitle.textContent = t('ui.filtersSection');
+  nodes.resetFilters.textContent = t('ui.reset');
+  nodes.sourcesSectionTitle.textContent = t('ui.sourcesSection');
+  nodes.newsSectionTitle.textContent = t('ui.importantNewsSection');
+  nodes.marketsSectionTitle.textContent = t('ui.marketsSection');
+  nodes.marketsSectionMeta.textContent = t('ui.marketsMeta');
+  nodes.footerBrandTitle.textContent = t('meta.title');
+  nodes.footerBrandSubtitle.textContent = t('ui.footerSubtitle');
+  nodes.legalImpressum.textContent = t('ui.legalImprint');
+  nodes.legalPrivacy.textContent = t('ui.legalPrivacy');
+  nodes.sidebarClose.setAttribute('aria-label', t('ui.closePanel'));
+  nodes.languageSwitch?.setAttribute('aria-label', t('ui.languageSwitch'));
+  nodes.langSwitchDe?.setAttribute('title', t('ui.languageGerman'));
+  nodes.langSwitchEn?.setAttribute('title', t('ui.languageEnglish'));
+  nodes.monitorStage.setAttribute('aria-label', t('ui.mapAria'));
+  nodes.mapCanvas.setAttribute('aria-label', t('ui.worldMapAria'));
+  nodes.langSwitchDe.classList.toggle('is-active', state.language === 'de');
+  nodes.langSwitchEn.classList.toggle('is-active', state.language === 'en');
+
+  if (!state.map) {
+    nodes.statusBadge.textContent = t('status.initializing');
+  }
+}
+
+async function setLanguage(language) {
+  if (!SUPPORTED_LANGUAGES.includes(language) || state.language === language) {
+    return;
+  }
+
+  state.language = language;
+  saveStoredLanguage();
+  renderStaticText();
+  syncSidebarToggle();
+  syncSourcesPanel();
+  renderFilterGroups();
+  renderSources();
+  renderEventList();
+  renderStats(state.latestStats);
+  renderMarkets();
+
+  if (state.activeLegalKind) {
+    openLegalPanel(state.activeLegalKind);
+  } else if (state.selectedEvent) {
+    renderDetail(state.selectedEvent);
+  }
+
+  if (state.map) {
+    await rebuildMapForLanguage();
+  }
+}
+
+async function rebuildMapForLanguage() {
+  if (!state.map) {
+    return;
+  }
+
+  const center = state.map.getCenter();
+  const zoom = state.map.getZoom();
+  state.map.remove();
+  state.map = null;
+  await initMap(state.mapConfig || DEFAULT_MAP_CONFIG, {
+    center: [center.lng, center.lat],
+    zoom
+  });
+}
+
+function loadStoredLanguage() {
+  try {
+    const value = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    return SUPPORTED_LANGUAGES.includes(value) ? value : DEFAULT_LANGUAGE;
+  } catch {
+    return DEFAULT_LANGUAGE;
+  }
+}
+
+function saveStoredLanguage() {
+  try {
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, state.language);
+  } catch {
+    // Ignore storage errors.
+  }
+}
+
+function t(key, params = {}) {
+  const segments = key.split('.');
+  let value = I18N[state.language];
+
+  for (const segment of segments) {
+    value = value?.[segment];
+  }
+
+  if (typeof value !== 'string') {
+    return key;
+  }
+
+  return value.replace(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ''));
+}
+
+function getLocale() {
+  return state.language === 'en' ? 'en-US' : 'de-DE';
+}
+
+function getMapLabelLanguage(language, configuredLanguage) {
+  if (language === 'en') {
+    return 'en';
+  }
+
+  return configuredLanguage || 'de';
+}
+
+function getMapFallbackLanguage(language, configuredFallback) {
+  if (language === 'en') {
+    return 'name';
+  }
+
+  return configuredFallback || 'en';
+}
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
 }
 
 function installMapLayers() {
@@ -364,11 +856,14 @@ function installMapLayers() {
         ['get', 'source'],
         'usgs', 'source-marker-usgs',
         'gdacs', 'source-marker-gdacs',
+        'gdelt', 'source-marker-gdelt',
         'noaa_tsunami', 'source-marker-noaa_tsunami',
         'firms', 'source-marker-firms',
-        'acled', 'source-marker-acled',
         'reliefweb', 'source-marker-reliefweb',
         'opensky', 'source-marker-opensky',
+        'ap', 'source-marker-ap',
+        'reuters', 'source-marker-reuters',
+        'bbc', 'source-marker-bbc',
         'source-marker-default'
       ],
       'icon-size': [
@@ -541,7 +1036,7 @@ async function loadViewportData() {
   }
 
   const token = ++state.loadToken;
-  setStatus('Lade Ereignisse …', 'loading');
+  setStatus(t('status.loadingEvents'), 'loading');
 
   try {
     const params = buildEventQuery();
@@ -561,10 +1056,10 @@ async function loadViewportData() {
     syncSelection();
 
     await loadStats();
-    setStatus(`${state.events.length} Ereignisse im Sichtfeld`, 'live');
+    setStatus(t('status.viewportEvents', { count: state.events.length }), 'live');
   } catch (error) {
     console.error('Failed to load viewport data:', error);
-    setStatus('Laden fehlgeschlagen', 'error');
+    setStatus(t('status.loadFailed'), 'error');
   }
 }
 
@@ -581,8 +1076,8 @@ async function loadImportantEvents() {
       params.set('bbox', `${west},${south},${east},${north}`);
     }
 
-    params.set('source', IMPORTANT_EVENT_SOURCE);
-    params.set('limit', '20');
+    params.set('source', IMPORTANT_EVENT_SOURCES.join(','));
+    params.set('limit', String(IMPORTANT_EVENT_LIMIT * 3));
 
     const payload = await fetchJson(`/api/events?${params.toString()}`);
     state.importantEvents = Array.isArray(payload)
@@ -595,13 +1090,7 @@ async function loadImportantEvents() {
 }
 
 async function loadStats() {
-  try {
-    const stats = await fetchJson('/api/stats');
-    renderStats(stats);
-  } catch (error) {
-    console.error('Failed to load stats:', error);
-    nodes.statsGrid.innerHTML = '<div class="empty-state">Statistiken nicht verfügbar.</div>';
-  }
+  renderStats(buildStatsFromEvents(state.events));
 }
 
 async function loadSources() {
@@ -613,7 +1102,7 @@ async function loadSources() {
     renderFilterGroups();
   } catch (error) {
     console.error('Failed to load sources:', error);
-    nodes.sourcesList.innerHTML = '<div class="empty-state">Quellenstatus nicht verfügbar.</div>';
+    nodes.sourcesList.innerHTML = `<div class="empty-state">${escapeHtml(t('ui.sourceStatusUnavailable'))}</div>`;
   }
 }
 
@@ -621,10 +1110,11 @@ async function loadMarkets() {
   try {
     const payload = await fetchJson('/api/stats/markets');
     state.markets = Array.isArray(payload?.instruments) ? payload.instruments : [];
-    renderMarkets(payload);
+    renderMarkets();
   } catch (error) {
     console.error('Failed to load market snapshot:', error);
-    nodes.marketsGrid.innerHTML = '<div class="empty-state">Marktdaten nicht verfügbar.</div>';
+    state.markets = [];
+    renderMarkets();
   }
 }
 
@@ -704,12 +1194,15 @@ function syncSelection() {
 }
 
 function renderStats(stats) {
+  const resolvedStats = stats || buildStatsFromEvents(state.events);
+  state.latestStats = resolvedStats;
+
   const cards = [
-    { label: 'Gesamt', value: stats.total ?? 0, tone: 'neutral' },
-    { label: 'Kritisch', value: stats.critical ?? 0, tone: 'critical' },
-    { label: 'Hoch', value: stats.high ?? 0, tone: 'high' },
-    { label: 'Mittel', value: stats.medium ?? 0, tone: 'medium' },
-    { label: 'Niedrig', value: stats.low ?? 0, tone: 'low' }
+    { label: t('stats.total'), value: resolvedStats.total ?? 0, tone: 'neutral' },
+    { label: t('stats.critical'), value: resolvedStats.critical ?? 0, tone: 'critical' },
+    { label: t('stats.high'), value: resolvedStats.high ?? 0, tone: 'high' },
+    { label: t('stats.medium'), value: resolvedStats.medium ?? 0, tone: 'medium' },
+    { label: t('stats.low'), value: resolvedStats.low ?? 0, tone: 'low' }
   ];
 
   nodes.statsGrid.innerHTML = cards
@@ -722,22 +1215,53 @@ function renderStats(stats) {
     .join('');
 }
 
+function buildStatsFromEvents(events = []) {
+  const list = Array.isArray(events) ? events : [];
+  const stats = {
+    total: list.length,
+    critical: 0,
+    high: 0,
+    medium: 0,
+    low: 0
+  };
+
+  for (const event of list) {
+    const score = Number(event?.score);
+    if (!Number.isFinite(score)) {
+      stats.low += 1;
+      continue;
+    }
+
+    if (score >= 0.8) {
+      stats.critical += 1;
+    } else if (score >= 0.6) {
+      stats.high += 1;
+    } else if (score >= 0.4) {
+      stats.medium += 1;
+    } else {
+      stats.low += 1;
+    }
+  }
+
+  return stats;
+}
+
 function renderFilterGroups() {
   nodes.filterGroups.innerHTML = `
     <section class="filter-group">
-      <h3>Typen</h3>
+      <h3>${t('ui.types')}</h3>
       <div class="filter-options">
         ${TYPE_OPTIONS.map((option) => renderCheckbox('type', option)).join('')}
       </div>
     </section>
     <section class="filter-group">
-      <h3>Quellen</h3>
+      <h3>${t('ui.sources')}</h3>
       <div class="filter-options">
         ${SOURCE_OPTIONS.map((option) => renderCheckbox('source', option)).join('')}
       </div>
     </section>
     <section class="filter-group">
-      <h3>Mindestscore</h3>
+      <h3>${t('ui.minScore')}</h3>
       <label class="range-filter">
         <input id="min-score" type="range" min="0" max="0.9" step="0.1" value="${state.filters.minScore}">
         <span id="min-score-value">${Math.round(state.filters.minScore * 100)}%</span>
@@ -763,6 +1287,7 @@ function renderCheckbox(kind, option) {
   const collection = kind === 'type' ? state.filters.types : state.filters.sources;
   const sourceStatus = kind === 'source' ? state.sources.find((entry) => entry.id === option.value) : null;
   const isDisabledSource = Boolean(sourceStatus) && !sourceStatus.enabled;
+  const label = kind === 'type' ? formatType(option.value) : option.label;
   return `
     <label class="filter-option ${isDisabledSource ? 'filter-option--disabled' : ''}">
       <input
@@ -772,7 +1297,7 @@ function renderCheckbox(kind, option) {
         ${isDisabledSource ? 'disabled' : ''}
         ${collection.has(option.value) ? 'checked' : ''}
       >
-      <span>${option.label}</span>
+      <span>${label}</span>
     </label>
   `;
 }
@@ -806,14 +1331,15 @@ function resetFilters() {
 }
 
 function renderEventList() {
-  const importantEvents = state.importantEvents
-    .filter((event) => event.source === IMPORTANT_EVENT_SOURCE)
-    .sort((left, right) => right.score - left.score || new Date(right.timestamp) - new Date(left.timestamp));
+  const importantEvents = dedupeImportantEvents(state.importantEvents
+    .filter((event) => IMPORTANT_EVENT_SOURCES.includes(event.source))
+    .sort((left, right) => rankImportantEvent(right) - rankImportantEvent(left))
+  ).slice(0, IMPORTANT_EVENT_LIMIT);
 
   nodes.eventCount.textContent = String(importantEvents.length);
 
   if (importantEvents.length === 0) {
-    nodes.eventList.innerHTML = '<div class="empty-state">Keine GDELT-verifizierten Meldungen im aktuellen Kartenausschnitt.</div>';
+    nodes.eventList.innerHTML = `<div class="empty-state">${t('ui.noImportantEvents')}</div>`;
     return;
   }
 
@@ -823,7 +1349,7 @@ function renderEventList() {
         <span class="event-card__type">${formatType(event.type)}</span>
         <strong class="event-card__title">${escapeHtml(event.title)}</strong>
         <span class="event-card__meta">
-          <span>${escapeHtml(event.source.toUpperCase())}</span>
+          <span>${escapeHtml(getNewsSourceLabel(event.source))}</span>
           <span>${formatRelative(event.timestamp)}</span>
           <span>${Math.round(event.score * 100)}%</span>
         </span>
@@ -838,21 +1364,85 @@ function renderEventList() {
   });
 }
 
+function dedupeImportantEvents(events) {
+  const seen = new Set();
+  const unique = [];
+
+  for (const event of events) {
+    const key = [
+      String(event.source || '').trim().toLowerCase(),
+      String(event.url || '').trim().toLowerCase(),
+      String(event.title || '').trim().toLowerCase()
+    ].join('|');
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    unique.push(event);
+  }
+
+  return unique;
+}
+
+function rankImportantEvent(event) {
+  const score = Number.isFinite(Number(event.score)) ? Number(event.score) : 0;
+  const ageHours = Math.max(0, (Date.now() - new Date(event.timestamp).getTime()) / (1000 * 60 * 60));
+  const recency = Math.max(0, 1 - (ageHours / 72));
+  const sourceWeight = getImportantSourceWeight(event.source);
+  return (score * 0.6) + (recency * 0.3) + (sourceWeight * 0.1);
+}
+
+function getImportantSourceWeight(source) {
+  switch (source) {
+    case 'bbc':
+      return 0.92;
+    case 'reuters':
+      return 0.96;
+    case 'reliefweb':
+      return 0.72;
+    case 'gdelt':
+      return 0.58;
+    default:
+      return 0.5;
+  }
+}
+
+function getNewsSourceLabel(source) {
+  switch (source) {
+    case 'bbc':
+      return 'BBC';
+    case 'gdelt':
+      return 'GDELT';
+    case 'reliefweb':
+      return 'ReliefWeb';
+    case 'reuters':
+      return 'Reuters';
+    default:
+      return String(source || '').toUpperCase();
+  }
+}
+
 function renderSources() {
-  if (!Array.isArray(state.sources) || state.sources.length === 0) {
-    nodes.sourcesList.innerHTML = '<div class="empty-state">Keine Quellen geladen.</div>';
+  const visibleSources = Array.isArray(state.sources)
+    ? state.sources.filter((source) => !HIDDEN_SOURCE_IDS.has(source.id))
+    : [];
+
+  if (visibleSources.length === 0) {
+    nodes.sourcesList.innerHTML = `<div class="empty-state">${t('ui.noSources')}</div>`;
     return;
   }
 
-  nodes.sourcesList.innerHTML = state.sources
+  nodes.sourcesList.innerHTML = visibleSources
     .map((source) => `
       <article class="source-card ${source.enabled ? 'source-card--on' : 'source-card--off'}">
         <div>
           <strong>${escapeHtml(source.name)}</strong>
-          <span>${escapeHtml(source.id)}${source.health_status ? ` · ${escapeHtml(String(source.health_status))}` : ''}</span>
+          <span>${escapeHtml(source.id)}${source.health_status ? ` · ${escapeHtml(formatHealthStatus(source.health_status))}` : ''}</span>
         </div>
         <div class="source-card__state">
-          <span>${source.enabled ? 'aktiv' : 'aus'}</span>
+          <span>${source.enabled ? t('sourceState.on') : t('sourceState.off')}</span>
           <small>${formatSourceStatus(source)}</small>
         </div>
       </article>
@@ -868,12 +1458,12 @@ function toggleSourcesPanel() {
 function syncSourcesPanel() {
   nodes.sourcesSection.classList.toggle('sources-panel__section--collapsed', !state.sourcesPanelOpen);
   nodes.sourcesCollapseToggle.setAttribute('aria-expanded', state.sourcesPanelOpen ? 'true' : 'false');
-  nodes.sourcesCollapseToggle.textContent = state.sourcesPanelOpen ? 'Ausblenden' : 'Einblenden';
+  nodes.sourcesCollapseToggle.textContent = state.sourcesPanelOpen ? t('ui.hide') : t('ui.show');
 }
 
-function renderMarkets(payload) {
+function renderMarkets() {
   if (!Array.isArray(state.markets) || state.markets.length === 0) {
-    nodes.marketsGrid.innerHTML = '<div class="empty-state">Keine Marktdaten geladen.</div>';
+    nodes.marketsGrid.innerHTML = `<div class="empty-state">${t('ui.noMarkets')}</div>`;
     return;
   }
 
@@ -881,7 +1471,7 @@ function renderMarkets(payload) {
     .map((instrument) => {
       const changeTone = instrument.change_percent > 0 ? 'up' : instrument.change_percent < 0 ? 'down' : 'flat';
       const changeText = formatMarketChange(instrument.change_percent);
-      const meta = instrument.as_of ? formatMarketTimestamp(instrument.as_of) : 'keine Zeit';
+      const meta = instrument.as_of ? formatMarketTimestamp(instrument.as_of) : t('markets.noTime');
 
       return `
         <article class="market-card">
@@ -896,27 +1486,29 @@ function renderMarkets(payload) {
 }
 
 function openLegalPanel(kind) {
-  const content = LEGAL_CONTENT[kind];
+  const content = getLegalContent(kind);
   if (!content) {
     return;
   }
 
+  state.activeLegalKind = kind;
   state.selectedEventId = null;
+  state.selectedEvent = null;
   renderEventList();
   openDetailPanel(`
     <div class="detail-panel__inner">
       <div class="detail-panel__header">
         <div class="detail-panel__heading">
-          <p class="eyebrow">${content.eyebrow}</p>
+          <p class="eyebrow">${t('detail.eyebrowLegal')}</p>
           <h2>${content.title}</h2>
         </div>
-        <button id="detail-close" class="icon-button icon-button--compact detail-panel__close" type="button" aria-label="Detailansicht schließen">×</button>
+        <button id="detail-close" class="icon-button icon-button--compact detail-panel__close" type="button" aria-label="${t('ui.closeDetail')}">×</button>
       </div>
       <div class="detail-legal">
         ${content.html}
       </div>
       <div class="detail-actions">
-        <a class="secondary-button detail-action-button" href="${content.sourceUrl}" target="_blank" rel="noopener">Originalseite öffnen</a>
+        <a class="secondary-button detail-action-button" href="${content.sourceUrl}" target="_blank" rel="noopener">${t('ui.originalPage')}</a>
       </div>
     </div>
   `);
@@ -936,6 +1528,7 @@ function openDetailPanel(markup) {
 function reconcileSourceFilters() {
   const enabledSources = new Set(
     state.sources
+      .filter((source) => !HIDDEN_SOURCE_IDS.has(source.id))
       .filter((source) => source.enabled)
       .map((source) => source.id)
   );
@@ -955,7 +1548,12 @@ function reconcileSourceFilters() {
 }
 
 function getDefaultSourceFilters(enabledSources = null) {
-  const allowed = enabledSources || new Set(state.sources.filter((source) => source.enabled).map((source) => source.id));
+  const allowed = enabledSources || new Set(
+    state.sources
+      .filter((source) => !HIDDEN_SOURCE_IDS.has(source.id))
+      .filter((source) => source.enabled)
+      .map((source) => source.id)
+  );
   return new Set(
     Array.from(DEFAULT_SOURCE_FILTERS).filter((sourceId) => allowed.size === 0 || allowed.has(sourceId))
   );
@@ -1016,34 +1614,38 @@ function clampMinScore(value) {
 
 function renderDetail(event) {
   const canReportIndustrialHeat = event.source === 'firms' && event.type === 'fire';
+  const translatedUrl = buildTranslatedSourceUrl(event);
+  state.activeLegalKind = null;
 
   openDetailPanel(`
     <div class="detail-panel__inner">
       <div class="detail-panel__header">
         <div class="detail-panel__heading">
-          <p class="eyebrow">Ereignisdetail</p>
+          <p class="eyebrow">${t('detail.eyebrowEvent')}</p>
           <h2>${escapeHtml(event.title)}</h2>
         </div>
-        <button id="detail-close" class="icon-button icon-button--compact detail-panel__close" type="button" aria-label="Detailansicht schließen">×</button>
+        <button id="detail-close" class="icon-button icon-button--compact detail-panel__close" type="button" aria-label="${t('ui.closeDetail')}">×</button>
       </div>
       <div class="detail-grid">
-        ${renderDetailField('Typ', formatType(event.type))}
-        ${renderDetailField('Quelle', escapeHtml(event.source.toUpperCase()))}
-        ${renderDetailField('Zeit', formatAbsolute(event.timestamp))}
-        ${renderDetailField('Score', `${Math.round(event.score * 100)}%`)}
-        ${renderDetailField('Koordinaten', `${event.lat.toFixed(3)}, ${event.lon.toFixed(3)}`)}
-        ${event.magnitude !== null ? renderDetailField('Magnitude', String(event.magnitude)) : ''}
+        ${renderDetailField(t('detail.type'), formatType(event.type))}
+        ${renderDetailField(t('detail.source'), escapeHtml(event.source.toUpperCase()))}
+        ${renderDetailField(t('detail.language'), formatEventLanguage(event), true)}
+        ${renderDetailField(t('detail.time'), formatAbsolute(event.timestamp))}
+        ${renderDetailField(t('detail.score'), `${Math.round(event.score * 100)}%`)}
+        ${renderDetailField(t('detail.coordinates'), `${event.lat.toFixed(3)}, ${event.lon.toFixed(3)}`)}
+        ${event.magnitude !== null ? renderDetailField(t('detail.magnitude'), String(event.magnitude)) : ''}
       </div>
       ${event.description ? `<p class="detail-copy">${escapeHtml(event.description)}</p>` : ''}
       ${canReportIndustrialHeat ? `
         <div id="industrial-report-note" class="detail-note">
-          Wenn mehrere Nutzer diesen Treffer als Industrieanlage markieren, wird er automatisch aus der Karte ausgeblendet.
+          ${t('detail.industrialHint')}
         </div>
       ` : ''}
       <div class="detail-actions">
-        <button id="focus-event" class="primary-button detail-action-button" type="button">Auf Karte fokussieren</button>
-        ${event.url ? `<a class="secondary-button detail-action-button" href="${encodeURI(event.url)}" target="_blank" rel="noopener">Quelle öffnen</a>` : ''}
-        ${canReportIndustrialHeat ? '<button id="report-industrial" class="secondary-button detail-action-button" type="button">Als Industrieanlage markieren</button>' : ''}
+        <button id="focus-event" class="primary-button detail-action-button" type="button">${t('ui.focusMap')}</button>
+        ${event.url ? `<a class="secondary-button detail-action-button" href="${encodeURI(event.url)}" target="_blank" rel="noopener">${t('ui.openSource')}</a>` : ''}
+        ${translatedUrl ? `<a class="secondary-button detail-action-button" href="${escapeHtml(translatedUrl)}" target="_blank" rel="noopener">${t('ui.openTranslated')}</a>` : ''}
+        ${canReportIndustrialHeat ? `<button id="report-industrial" class="secondary-button detail-action-button" type="button">${t('ui.reportIndustrial')}</button>` : ''}
       </div>
     </div>
   `);
@@ -1060,7 +1662,11 @@ function renderDetail(event) {
   });
 }
 
-function renderDetailField(label, value) {
+function renderDetailField(label, value, optional = false) {
+  if (optional && !value) {
+    return '';
+  }
+
   return `
     <div class="detail-field">
       <span>${label}</span>
@@ -1098,6 +1704,7 @@ async function selectEvent(eventId, options = {}) {
 function clearSelection() {
   state.selectedEventId = null;
   state.selectedEvent = null;
+  state.activeLegalKind = null;
   nodes.detailBackdrop.classList.remove('detail-backdrop--open');
   nodes.detailBackdrop.hidden = true;
   nodes.detailPanel.classList.remove('detail-panel--open');
@@ -1158,7 +1765,7 @@ function closeSidebar() {
 
 function syncSidebarToggle() {
   nodes.sidebarToggle.setAttribute('aria-expanded', state.sidebarOpen ? 'true' : 'false');
-  nodes.sidebarToggle.textContent = 'Lagepanel';
+  nodes.sidebarToggle.textContent = t('ui.sidebarToggle');
   nodes.sidebarToggle.classList.toggle('sidebar-toggle--hidden', state.sidebarOpen);
 }
 
@@ -1174,11 +1781,11 @@ function connectWebSocket() {
   const url = `${protocol}//${window.location.host}/ws`;
 
   state.ws = new WebSocket(url);
-  setStatus('Verbinde Live-Stream …', 'loading');
+  setStatus(t('status.connecting'), 'loading');
 
   state.ws.addEventListener('open', () => {
     state.reconnectDelay = 1000;
-    setStatus('Live verbunden', 'live');
+    setStatus(t('status.liveConnected'), 'live');
     state.ws.send(JSON.stringify({ type: 'subscribe', payload: { channels: ['events', 'stats', 'sources'] } }));
   });
 
@@ -1199,7 +1806,7 @@ function connectWebSocket() {
   });
 
   state.ws.addEventListener('close', () => {
-    setStatus('Live getrennt, neuer Verbindungsversuch …', 'loading');
+    setStatus(t('status.disconnected'), 'loading');
     reconnectWebSocket();
   });
 
@@ -1250,7 +1857,7 @@ async function submitIndustrialHeatReport(event) {
   }
 
   if (note) {
-    note.textContent = 'Meldung wird gespeichert …';
+    note.textContent = t('detail.industrialSaving');
   }
 
   try {
@@ -1263,8 +1870,8 @@ async function submitIndustrialHeatReport(event) {
 
     if (note) {
       note.textContent = response.inserted
-        ? `Markierung gespeichert. ${response.reportCount}/${response.threshold} Meldungen erreicht.`
-        : `Dieser Browser hat den Treffer bereits markiert. Aktuell ${response.reportCount}/${response.threshold}.`;
+        ? t('detail.industrialStored', { count: response.reportCount, threshold: response.threshold })
+        : t('detail.industrialAlreadyStored', { count: response.reportCount, threshold: response.threshold });
     }
 
     if (!response.inserted && button) {
@@ -1274,7 +1881,7 @@ async function submitIndustrialHeatReport(event) {
 
     if (response.hidden) {
       if (note) {
-        note.textContent = 'Der Treffer ist jetzt als Industrieanlage ausgeblendet.';
+        note.textContent = t('detail.industrialHidden');
       }
 
       window.setTimeout(() => {
@@ -1290,7 +1897,7 @@ async function submitIndustrialHeatReport(event) {
   } catch (error) {
     console.error(`Failed to report industrial heat for event ${event.id}:`, error);
     if (note) {
-      note.textContent = 'Markierung konnte nicht gespeichert werden.';
+      note.textContent = t('detail.industrialFailed');
     }
     if (button) {
       button.disabled = false;
@@ -1431,7 +2038,8 @@ async function fetchJson(url, options = {}) {
 }
 
 function formatType(type) {
-  return TYPE_OPTIONS.find((entry) => entry.value === type)?.label || type;
+  const label = t(`types.${type}`);
+  return label === `types.${type}` ? type : label;
 }
 
 function formatRelative(timestamp) {
@@ -1439,31 +2047,31 @@ function formatRelative(timestamp) {
   const diffHours = Math.round(diffMs / (1000 * 60 * 60));
 
   if (diffHours <= 1) {
-    return 'gerade eben';
+    return t('eventMeta.justNow');
   }
 
   if (diffHours < 24) {
-    return `vor ${diffHours} h`;
+    return t('eventMeta.hoursAgo', { count: diffHours });
   }
 
-  return `vor ${Math.round(diffHours / 24)} d`;
+  return t('eventMeta.daysAgo', { count: Math.round(diffHours / 24) });
 }
 
 function formatAbsolute(timestamp) {
-  return new Date(timestamp).toLocaleString('de-DE', {
+  return new Date(timestamp).toLocaleString(getLocale(), {
     dateStyle: 'medium',
     timeStyle: 'short'
   });
 }
 
 function formatNumber(value) {
-  return new Intl.NumberFormat('de-DE').format(Number(value || 0));
+  return new Intl.NumberFormat(getLocale()).format(Number(value || 0));
 }
 
 function formatMarketValue(value, unit, kind) {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) {
-    return 'n/v';
+    return t('markets.notAvailable');
   }
 
   const options = {
@@ -1476,21 +2084,24 @@ function formatMarketValue(value, unit, kind) {
     options.maximumFractionDigits = 4;
   }
 
-  return `${new Intl.NumberFormat('de-DE', options).format(numericValue)}${unit ? ` ${unit}` : ''}`;
+  return `${new Intl.NumberFormat(getLocale(), options).format(numericValue)}${unit ? ` ${unit}` : ''}`;
 }
 
 function formatMarketChange(value) {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) {
-    return 'n/v';
+    return t('markets.notAvailable');
   }
 
   const sign = numericValue > 0 ? '+' : '';
-  return `${sign}${numericValue.toFixed(2)}%`;
+  return `${sign}${new Intl.NumberFormat(getLocale(), {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(numericValue)}%`;
 }
 
 function formatMarketTimestamp(timestamp) {
-  return new Date(timestamp).toLocaleString('de-DE', {
+  return new Date(timestamp).toLocaleString(getLocale(), {
     dateStyle: 'short',
     timeStyle: 'short'
   });
@@ -1498,11 +2109,160 @@ function formatMarketTimestamp(timestamp) {
 
 function formatSourceStatus(source) {
   if (source.last_status) {
-    return String(source.last_status).slice(0, 42);
+    return formatRawSourceStatus(source.last_status);
   }
 
   const minutes = Math.round(Number(source.interval_minutes || (source.interval_seconds || 0) / 60 || 0));
   return `${minutes} min`;
+}
+
+function formatHealthStatus(status) {
+  const key = String(status || '').toLowerCase();
+  const translated = t(`sourceHealth.${key}`);
+  return translated === `sourceHealth.${key}` ? status : translated;
+}
+
+function formatRawSourceStatus(value) {
+  const text = String(value || '').trim();
+  const normalized = text.toLowerCase();
+
+  if (normalized === 'ok') {
+    return t('rawSourceStatus.ok');
+  }
+
+  if (normalized === 'running') {
+    return t('rawSourceStatus.running');
+  }
+
+  if (normalized.startsWith('error:')) {
+    return `${t('rawSourceStatus.error')}: ${text.slice(6).trim()}`.slice(0, 42);
+  }
+
+  if (normalized.startsWith('disabled:')) {
+    return `${t('rawSourceStatus.disabled')}: ${text.slice(9).trim()}`.slice(0, 42);
+  }
+
+  if (normalized.startsWith('ready:')) {
+    return `${t('rawSourceStatus.ready')}: ${text.slice(6).trim()}`.slice(0, 42);
+  }
+
+  return text.slice(0, 42);
+}
+
+function formatEventLanguage(event) {
+  const data = event?.data || {};
+  const codes = [];
+
+  if (typeof data.content_language === 'string' && data.content_language.trim()) {
+    codes.push(data.content_language.trim());
+  }
+
+  if (Array.isArray(data.content_languages)) {
+    codes.push(...data.content_languages.map((value) => String(value || '').trim()).filter(Boolean));
+  }
+
+  if (Array.isArray(data.articles)) {
+    codes.push(...data.articles.map((article) => String(article?.language || '').trim()).filter(Boolean));
+  }
+
+  const uniqueCodes = Array.from(new Set(codes));
+  if (uniqueCodes.length === 0) {
+    return '';
+  }
+
+  const displayNames = typeof Intl.DisplayNames === 'function'
+    ? new Intl.DisplayNames([getLocale()], { type: 'language' })
+    : null;
+
+  return uniqueCodes
+    .map((code) => formatLanguageCode(code, displayNames))
+    .join(', ');
+}
+
+function buildTranslatedSourceUrl(event) {
+  const originalUrl = String(event?.url || '').trim();
+  if (!originalUrl) {
+    return null;
+  }
+
+  const sourceLanguage = getPrimaryEventLanguageCode(event);
+  const targetLanguage = state.language === 'en' ? 'en' : 'de';
+
+  if (!sourceLanguage || sourceLanguage === targetLanguage) {
+    return null;
+  }
+
+  return `https://translate.google.com/translate?sl=${encodeURIComponent(sourceLanguage)}&tl=${encodeURIComponent(targetLanguage)}&u=${encodeURIComponent(originalUrl)}`;
+}
+
+function getPrimaryEventLanguageCode(event) {
+  const data = event?.data || {};
+  const candidates = [];
+
+  if (typeof data.content_language === 'string' && data.content_language.trim()) {
+    candidates.push(data.content_language.trim());
+  }
+
+  if (Array.isArray(data.content_languages)) {
+    candidates.push(...data.content_languages.map((value) => String(value || '').trim()).filter(Boolean));
+  }
+
+  if (Array.isArray(data.articles)) {
+    candidates.push(...data.articles.map((article) => String(article?.language || '').trim()).filter(Boolean));
+  }
+
+  for (const candidate of candidates) {
+    const normalized = normalizeLanguageCode(candidate);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return null;
+}
+
+function formatLanguageCode(code, displayNames = null) {
+  const trimmed = String(code || '').trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  const normalized = trimmed.replace('_', '-');
+  const canonical = normalizeLanguageCode(normalized) || normalized;
+  const baseCode = canonical.toLowerCase().split('-')[0];
+  const label = displayNames?.of(baseCode);
+
+  if (!label || label.toLowerCase() === baseCode) {
+    return normalized;
+  }
+
+  return canonical.toLowerCase() === baseCode
+    ? label
+    : `${label} (${normalized})`;
+}
+
+function normalizeLanguageCode(value) {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const normalized = trimmed.replace('_', '-');
+  return LANGUAGE_NAME_TO_CODE.get(normalized.toLowerCase()) || normalized.toLowerCase();
+}
+
+function getLegalContent(kind) {
+  const legalEntry = I18N[state.language]?.legal?.[kind];
+  if (!legalEntry) {
+    return null;
+  }
+
+  return {
+    ...legalEntry,
+    sourceUrl: kind === 'impressum'
+      ? 'https://schnueddels.de/impressum.php'
+      : 'https://schnueddels.de/datenschutz.php'
+  };
 }
 
 function escapeHtml(value) {

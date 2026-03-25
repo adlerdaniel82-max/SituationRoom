@@ -46,7 +46,15 @@ async function storeEventUpdate({ eventId, source, changedFields = [], beforeSta
 async function getLatest(source) {
   const sql = 'SELECT * FROM raw_data WHERE source = ? ORDER BY created_at DESC LIMIT 1';
   const rows = await query(sql, [source]);
-  return rows[0] ? JSON.parse(rows[0].data) : null;
+  if (!rows[0]) {
+    return null;
+  }
+
+  const payload = JSON.parse(rows[0].data);
+  return {
+    ...payload,
+    created_at: rows[0].created_at
+  };
 }
 
 async function cleanup(daysToKeep = 7) {
