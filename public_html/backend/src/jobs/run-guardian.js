@@ -8,9 +8,9 @@ async function main() {
   let lock;
 
   try {
-    lock = acquireJobLock('run-reuters');
-    const result = await runSource('reuters');
-    logger.info('Reuters job completed', result);
+    lock = acquireJobLock('run-guardian');
+    const result = await runSource('guardian');
+    logger.info('Guardian job completed', result);
     lock.release();
     process.exit(result.status === 'completed' ? 0 : 1);
   } catch (error) {
@@ -18,10 +18,10 @@ async function main() {
       lock.release();
     }
     if (isLockError(error)) {
-      logger.warn('Reuters job skipped because another run is active');
+      logger.warn('Guardian job skipped because another run is active');
       process.exit(0);
     }
-    logger.error('Reuters job failed', error);
+    logger.error('Guardian job failed', error);
     process.exit(1);
   }
 }

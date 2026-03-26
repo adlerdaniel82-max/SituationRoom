@@ -1,6 +1,6 @@
 const { query } = require('./db');
 
-const HIDDEN_SOURCE_IDS = new Set(['acled', 'ap']);
+const HIDDEN_SOURCE_IDS = new Set(['acled', 'ap', 'reuters']);
 
 const DEFAULT_SOURCES = [
   { id: 'usgs', name: 'USGS Earthquakes', type: 'earthquake', enabled: true, interval: 300 },
@@ -11,9 +11,13 @@ const DEFAULT_SOURCES = [
   { id: 'acled', name: 'ACLED Conflicts', type: 'conflict', enabled: false, interval: 3600 },
   { id: 'reliefweb', name: 'ReliefWeb', type: 'humanitarian', enabled: true, interval: 1800 },
   { id: 'opensky', name: 'OpenSky Network', type: 'aviation', enabled: true, interval: 60 },
-  { id: 'ap', name: 'AP News', type: 'humanitarian', enabled: false, interval: 1800 },
-  { id: 'reuters', name: 'Reuters', type: 'humanitarian', enabled: false, interval: 1800 },
-  { id: 'bbc', name: 'BBC News', type: 'humanitarian', enabled: true, interval: 1800 }
+  { id: 'bbc', name: 'BBC News', type: 'humanitarian', enabled: true, interval: 1800 },
+  { id: 'guardian', name: 'The Guardian', type: 'humanitarian', enabled: true, interval: 1800 },
+  { id: 'aljazeera', name: 'Al Jazeera', type: 'humanitarian', enabled: true, interval: 1800 },
+  { id: 'dw', name: 'DW', type: 'humanitarian', enabled: true, interval: 1800 },
+  { id: 'france24', name: 'France24', type: 'humanitarian', enabled: true, interval: 1800 },
+  { id: 'npr', name: 'NPR', type: 'humanitarian', enabled: true, interval: 1800 },
+  { id: 'skynews', name: 'Sky News', type: 'humanitarian', enabled: true, interval: 1800 }
 ];
 
 let sources = [];

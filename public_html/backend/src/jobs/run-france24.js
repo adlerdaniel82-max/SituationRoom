@@ -8,9 +8,9 @@ async function main() {
   let lock;
 
   try {
-    lock = acquireJobLock('run-ap');
-    const result = await runSource('ap');
-    logger.info('AP job completed', result);
+    lock = acquireJobLock('run-france24');
+    const result = await runSource('france24');
+    logger.info('France24 job completed', result);
     lock.release();
     process.exit(result.status === 'completed' ? 0 : 1);
   } catch (error) {
@@ -18,10 +18,10 @@ async function main() {
       lock.release();
     }
     if (isLockError(error)) {
-      logger.warn('AP job skipped because another run is active');
+      logger.warn('France24 job skipped because another run is active');
       process.exit(0);
     }
-    logger.error('AP job failed', error);
+    logger.error('France24 job failed', error);
     process.exit(1);
   }
 }

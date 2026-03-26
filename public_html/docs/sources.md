@@ -147,19 +147,12 @@ Current bootstrap files:
 **ID:** `bbc`  
 **Default Interval:** 30 minutes
 
-**Feeds:**
-- `https://feeds.bbci.co.uk/news/world/rss.xml`
-- `https://feeds.bbci.co.uk/news/uk/rss.xml`
-- `https://feeds.bbci.co.uk/news/business/rss.xml`
-- `https://feeds.bbci.co.uk/news/politics/rss.xml`
-- `https://feeds.bbci.co.uk/news/health/rss.xml`
-- `https://feeds.bbci.co.uk/news/science_and_environment/rss.xml`
-- `https://feeds.bbci.co.uk/news/technology/rss.xml`
+**Feed:** `https://feeds.bbci.co.uk/news/world/rss.xml`
 
 **Role in Situation Room:**
+- Visible RSS live feed
 - Secondary validation source
 - Optional map layer
-- News-style humanitarian context source
 
 **Notes:**
 - Enabled by default on the backend, but not enabled by default in fresh browser source filters.
@@ -169,40 +162,114 @@ Current bootstrap files:
 
 ---
 
-### AP News
+### The Guardian
 
 **Type:** Humanitarian / News  
-**ID:** `ap`  
+**ID:** `guardian`  
 **Default Interval:** 30 minutes
 
-**Feed:** `https://apnews.com/rss`
+**Feed:** `https://www.theguardian.com/world/rss`
 
-**Default State:** retired / hidden
+**Role in Situation Room:**
+- Visible RSS live feed
+- Secondary validation source
+- Optional map layer
 
 **Notes:**
-- Integrated in code, but currently not used operationally.
-- The previously tested public RSS endpoint is no longer reliable enough for production use.
-- The importer uses the same conservative centroid resolution as `BBC`.
+- Uses the shared RSS importer with the same conservative location logic as `BBC`.
+- Stored with trust metadata (`trust_base_score = 0.90`) for scoring and validation.
 
 ---
 
-### Reuters
+### Al Jazeera
 
 **Type:** Humanitarian / News  
-**ID:** `reuters`  
+**ID:** `aljazeera`  
 **Default Interval:** 30 minutes
 
-**Feeds:**
-- `https://www.reutersagency.com/feed/?best-topics=world&post_type=best`
-- `https://www.reutersagency.com/feed/?post_type=best&best-topics=breakingviews`
+**Feed:** `https://www.aljazeera.com/xml/rss/all.xml`
 
-**Default State:** disabled
+**Role in Situation Room:**
+- Visible RSS live feed
+- Secondary validation source
+- Optional map layer
 
 **Notes:**
-- Integrated as a prepared secondary news source.
-- Current feed access still needs operational verification before activation.
-- The importer uses the same conservative centroid resolution as `BBC`.
-- Reuters items are treated as original-language content and currently prepared as English-language feed data.
+- Uses the shared RSS importer with the same conservative location logic as `BBC`.
+- Stored with trust metadata (`trust_base_score = 0.88`) for scoring and validation.
+
+---
+
+### DW
+
+**Type:** Humanitarian / News  
+**ID:** `dw`  
+**Default Interval:** 30 minutes
+
+**Feed:** `https://rss.dw.com/xml/rss-en-all`
+
+**Role in Situation Room:**
+- Visible secondary RSS feed
+- Additional validation source
+- Optional map layer
+
+---
+
+### France24
+
+**Type:** Humanitarian / News  
+**ID:** `france24`  
+**Default Interval:** 30 minutes
+
+**Feed:** `https://www.france24.com/en/rss`
+
+**Role in Situation Room:**
+- Visible secondary RSS feed
+- Additional validation source
+- Optional map layer
+
+---
+
+### NPR
+
+**Type:** Humanitarian / News  
+**ID:** `npr`  
+**Default Interval:** 30 minutes
+
+**Feed:** `https://feeds.npr.org/1004/rss.xml`
+
+**Role in Situation Room:**
+- Visible secondary RSS feed
+- Additional validation source
+- Optional map layer
+
+---
+
+### Sky News
+
+**Type:** Humanitarian / News  
+**ID:** `skynews`  
+**Default Interval:** 30 minutes
+
+**Feed:** `https://feeds.skynews.com/feeds/rss/world.xml`
+
+**Role in Situation Room:**
+- Visible secondary RSS feed
+- Additional validation source
+- Optional map layer
+
+---
+
+### Retired Public RSS Feeds
+
+**IDs:** `ap`, `reuters`
+
+**Default State:** hidden / disabled
+
+**Notes:**
+- `AP` and `Reuters` are no longer used as technical feed sources.
+- The previously tested public endpoints are not stable enough for production (`404` / deprecated).
+- Historical source rows may still exist in the database, but they are hidden from UI and status output and are not part of the active news pipeline.
 
 ---
 

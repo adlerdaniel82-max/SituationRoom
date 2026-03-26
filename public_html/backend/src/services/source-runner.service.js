@@ -12,9 +12,13 @@ const importers = {
   acled: require('../importers/acled.importer'),
   reliefweb: require('../importers/reliefweb.importer'),
   opensky: require('../importers/opensky.importer'),
-  ap: require('../importers/ap.importer'),
-  reuters: require('../importers/reuters.importer'),
-  bbc: require('../importers/bbc.importer')
+  bbc: require('../importers/bbc.importer'),
+  guardian: require('../importers/guardian.importer'),
+  aljazeera: require('../importers/aljazeera.importer'),
+  dw: require('../importers/dw.importer'),
+  france24: require('../importers/france24.importer'),
+  npr: require('../importers/npr.importer'),
+  skynews: require('../importers/skynews.importer')
 };
 
 const runningJobs = new Map();

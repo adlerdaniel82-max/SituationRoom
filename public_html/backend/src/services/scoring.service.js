@@ -10,10 +10,16 @@ const SOURCE_CONFIDENCE_SCORES = {
   reliefweb: 0.62,
   gdelt: 0.44,
   opensky: 0.58,
-  ap: 0.9,
-  reuters: 0.92,
-  bbc: 0.86
+  bbc: 0.92,
+  guardian: 0.9,
+  aljazeera: 0.88,
+  dw: 0.87,
+  france24: 0.86,
+  npr: 0.89,
+  skynews: 0.85
 };
+
+const RSS_NEWS_SOURCES = new Set(['bbc', 'guardian', 'aljazeera', 'dw', 'france24', 'npr', 'skynews']);
 
 const TYPE_BASE_SEVERITY = {
   earthquake: 0.35,
@@ -140,11 +146,11 @@ function calculateAttentionScore(eventData) {
     return clampScore(0.35 + (hasCountry ? 0.15 : 0) + (hasDisaster ? 0.2 : 0));
   }
 
-  if (['ap', 'reuters', 'bbc'].includes(eventData.source)) {
-    const trustBase = Number(eventData.data?.trust_base_score || 0.75);
+  if (RSS_NEWS_SOURCES.has(eventData.source)) {
+    const trustBase = Number(eventData.data?.trust_base_score || SOURCE_CONFIDENCE_SCORES[eventData.source] || 0.75);
     const hasDescription = String(eventData.data?.description || '').trim().length > 60;
     const hasPublisherMeta = Boolean(eventData.data?.editorial_tier || eventData.data?.ownership_type);
-    return clampScore((trustBase * 0.55) + (hasDescription ? 0.2 : 0) + (hasPublisherMeta ? 0.15 : 0));
+    return clampScore((trustBase * 0.6) + (hasDescription ? 0.18 : 0) + (hasPublisherMeta ? 0.12 : 0));
   }
 
   return 0;

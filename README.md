@@ -9,13 +9,13 @@ Aktueller Funktionsstand:
 - Node-Backend unter `public_html/backend/`
 - MariaDB als Primärspeicher
 - Live-Frontend mit MapLibre, Viewport-Fetch, Filtern, WebSocket-Updates und Detailmodals
-- eigenes Meldungsfenster für priorisierte News aus `BBC`, `GDELT`, `ReliefWeb` und optional `Reuters`
+- eigenes Meldungsfenster für priorisierte RSS-News aus `BBC`, `Guardian`, `Al Jazeera`, `DW`, `France24`, `NPR` und `Sky News`
 - mehrteiliges Scoring pro Event mit `source_confidence`, `event_severity`, `validation_score` und `attention_score`
 - Nginx-Setup produktiv auf `situation.schnueddels.de`
 
 Wichtige Einschränkungen:
 - Keine belastbare Test-Suite
-- Einige Quellen sind noch MVP-artig oder extern blockiert, vor allem `Reuters`
+- Einige Quellen sind noch MVP-artig oder extern blockiert, vor allem `ACLED`
 
 ## Datenquellen
 
@@ -28,13 +28,20 @@ Aktuell integriert:
 - `ReliefWeb`
 - `OpenSky`
 - `BBC News`
+- `The Guardian`
+- `Al Jazeera`
+- `DW`
+- `France24`
+- `NPR`
+- `Sky News`
 
 Vorläufig deaktiviert:
-- `Reuters`
+- keine
 
 Archiviert / operativ ausgeblendet:
 - `ACLED` (Lizenzkosten / kein nutzbarer API-Zugang)
 - `AP News` (keine verlässliche RSS-Quelle mehr)
+- `Reuters` (keine stabil nutzbaren öffentlichen RSS-Feeds)
 
 Quelle-Details und Auth-Hinweise stehen in:
 - `public_html/docs/sources.md`
@@ -132,7 +139,7 @@ Zusätzlich werden Roh- und Änderungshistorien mitgeführt:
 - `event_updates` für Vorher-/Nachher-Stände bei Event-Änderungen
 - `event_reports` für Community-Meldungen wie `industrial_heat` bei FIRMS-Feuern
 - `event_tags` als vorbereitete Tagging-Basis für spätere quellenübergreifende Korrelationen und Reviews
-- `event_validation_matches` für persistente GDELT-/ReliefWeb-Matches zu Primärevents
+- `event_validation_matches` für persistente News-Matches zu Primärevents aus `GDELT`, `ReliefWeb` und den aktiven RSS-Newsquellen
 
 ## Jobs
 
@@ -145,15 +152,22 @@ Importjobs:
 - `node public_html/backend/src/jobs/run-reliefweb.js`
 - `node public_html/backend/src/jobs/run-opensky.js`
 - `node public_html/backend/src/jobs/run-bbc.js`
-- `node public_html/backend/src/jobs/run-ap.js`
-- `node public_html/backend/src/jobs/run-reuters.js`
+- `node public_html/backend/src/jobs/run-guardian.js`
+- `node public_html/backend/src/jobs/run-aljazeera.js`
+- `node public_html/backend/src/jobs/run-dw.js`
+- `node public_html/backend/src/jobs/run-france24.js`
+- `node public_html/backend/src/jobs/run-npr.js`
+- `node public_html/backend/src/jobs/run-skynews.js`
 - `node public_html/backend/src/jobs/run-acled.js`
 
 Wartungsjobs:
 - `node public_html/backend/src/jobs/backfill-scoring.js`
 - `node public_html/backend/src/jobs/backfill-news-validation.js`
 
-`BBC` ist als zusätzliche sekundäre News-/Validierungsquelle aktiv. `Reuters` ist bereits integriert, bleibt aber vorerst deaktiviert, bis Feed-Zugänge und stabile Ortsauflösung fachlich bestätigt sind. `AP` ist operativ stillgelegt, weil derzeit keine verlässliche RSS-Quelle mehr verfügbar ist.
+Die News-Architektur trennt bewusst zwischen zentraler News-Engine und sichtbaren RSS-Feeds:
+- `GDELT` bleibt die zentrale Engine für News-Suche, Event-Validierung, globalen News-Layer und spätere Heatmaps.
+- Sichtbare RSS-Newsfeeds sind aktuell `BBC`, `Guardian`, `Al Jazeera`, `DW`, `France24`, `NPR` und `Sky News`.
+- `AP` und `Reuters` werden nicht mehr als technische Feed-Quellen verwendet, weil die öffentlich verfügbaren RSS-Endpunkte nicht stabil nutzbar sind.
 
 `ACLED` bleibt im Codebestand erhalten, ist operativ aber ausgeblendet und deaktiviert, weil der benötigte API-Zugang aktuell nicht finanzierbar ist.
 
@@ -197,7 +211,7 @@ Der aktuelle Desktop-Aufbau:
 
 Die Basiskarte kann mit MapTiler `dataviz-v4-dark` und deutscher Primärsprache betrieben werden, wenn `MAPTILER_API_KEY` gesetzt ist.
 
-Das Panel `Wichtigste Meldungen` ist aktuell bewusst vom Kartenfilter entkoppelt und zeigt priorisierte News-Ereignisse aus `BBC`, `GDELT`, `ReliefWeb` und optional `Reuters` im aktuellen Kartenausschnitt.
+Das Panel `Wichtigste Meldungen` ist bewusst vom Kartenfilter entkoppelt und zeigt priorisierte RSS-News-Ereignisse aus `BBC`, `Guardian`, `Al Jazeera`, `DW`, `France24`, `NPR` und `Sky News` im aktuellen Kartenausschnitt. Dabei werden Aktualität, Event-Score und Domain-Balance kombiniert, damit das Panel nicht von einer einzelnen News-Domain dominiert wird.
 
 Die UI ist bereits auf `Deutsch / Englisch` umschaltbar. Bei News-Artikeln und Reports ist dagegen derzeit nur eine Lokalisierung der umgebenden Oberfläche realistisch. Die eigentlichen Titel, Beschreibungen und Quelltexte kommen in der Regel nur in ihrer Originalsprache aus dem Feed oder der API. Deshalb speichert das System für Newsquellen jetzt primär Sprachmetadaten wie `content_language` oder `content_languages`; fuer fremdsprachige Meldungen gibt es im Detailmodal aktuell den pragmatischen Link `Uebersetzt oeffnen` ueber Google Translate. Eine echte integrierte Uebersetzung der Artikel wuerde spaeter einen separaten Uebersetzungsdienst oder mehrsprachige Quellfeeds erfordern.
 

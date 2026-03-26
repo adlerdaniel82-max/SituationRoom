@@ -2,8 +2,9 @@ const eventRepository = require('../repositories/event.repository');
 const eventTagRepository = require('../repositories/event-tag.repository');
 const eventValidationRepository = require('../repositories/event-validation.repository');
 
-const SECONDARY_SOURCES = new Set(['gdelt', 'reliefweb', 'ap', 'reuters', 'bbc']);
+const SECONDARY_SOURCES = new Set(['gdelt', 'reliefweb', 'bbc', 'guardian', 'aljazeera', 'dw', 'france24', 'npr', 'skynews']);
 const PRIMARY_SOURCES = new Set(['usgs', 'gdacs', 'noaa_tsunami', 'firms', 'opensky']);
+const RSS_SECONDARY_SOURCES = new Set(['bbc', 'guardian', 'aljazeera', 'dw', 'france24', 'npr', 'skynews']);
 const VALIDATION_TAG_SOURCE = 'validation_prep';
 const VALIDATION_WINDOW_HOURS = 72;
 const MIN_MATCH_SCORE = 0.35;
@@ -56,12 +57,15 @@ async function validatePrimaryEvent(event) {
       continue;
     }
 
-    await eventValidationRepository.upsertValidationMatch(match);
     rankedMatches.push(match);
   }
 
-  rankedMatches.sort((left, right) => right.matchScore - left.matchScore);
-  const summary = buildValidationSummary(context, rankedMatches);
+  const persistedMatches = dedupeValidationMatches(rankedMatches);
+  for (const match of persistedMatches) {
+    await eventValidationRepository.upsertValidationMatch(match);
+  }
+
+  const summary = buildValidationSummary(context, persistedMatches);
   const nextData = {
     ...(event.data && typeof event.data === 'object' && !Array.isArray(event.data) ? event.data : {}),
     validation: summary
@@ -76,7 +80,7 @@ async function validatePrimaryEvent(event) {
     status: 'validated',
     eventId: event.id,
     query: context.queryText,
-    matches: rankedMatches.length,
+    matches: persistedMatches.length,
     bestMatchScore: summary.best_match_score
   };
 }
@@ -208,8 +212,8 @@ function buildValidationMatch(primaryEvent, secondaryEvent, context) {
   const locationSignal = Number.isFinite(distanceKm) ? clamp(1 - (distanceKm / MAX_DISTANCE_KM)) : 0;
   const publisherCount = getPublisherCount(secondaryEvent);
   const articleCount = getArticleCount(secondaryEvent);
-  const publisherSignal = clamp(Math.min(publisherCount / 8, 1));
-  const articleSignal = clamp(Math.min(articleCount / 12, 1));
+  const publisherSignal = getPublisherSignal(secondaryEvent, publisherCount);
+  const articleSignal = getArticleSignal(secondaryEvent, articleCount);
 
   const matchScore = clamp(
     keywordSignal * 0.3
@@ -237,6 +241,7 @@ function buildValidationMatch(primaryEvent, secondaryEvent, context) {
     distanceKm: Number.isFinite(distanceKm) ? round(distanceKm) : null,
     publisherCount,
     articleCount,
+    dedupeKey: getSecondaryDedupeKey(secondaryEvent),
     signalData: {
       primary_event_type: primaryEvent.type,
       primary_country_terms: primaryCountryTerms,
@@ -274,6 +279,20 @@ function buildValidationSummary(context, matches) {
     })),
     last_validated_at: new Date().toISOString()
   };
+}
+
+function dedupeValidationMatches(matches) {
+  const bestByKey = new Map();
+
+  for (const match of matches.sort((left, right) => right.matchScore - left.matchScore)) {
+    const dedupeKey = String(match.dedupeKey || `${match.secondarySource}:${match.secondaryEventId}`);
+    const existing = bestByKey.get(dedupeKey);
+    if (!existing || match.matchScore > existing.matchScore) {
+      bestByKey.set(dedupeKey, match);
+    }
+  }
+
+  return Array.from(bestByKey.values()).sort((left, right) => right.matchScore - left.matchScore);
 }
 
 function shouldRevalidatePrimaryForSecondary(primaryEvent, secondaryEvent) {
@@ -361,8 +380,11 @@ function collectSecondaryTextTerms(event) {
     data.description,
     data.body_html,
     data.body,
+    data.country,
+    data.location,
     data.attention_country,
     data.affected_region,
+    ...(Array.isArray(data.categories) ? data.categories : []),
     ...(Array.isArray(data.country) ? data.country.map((item) => item?.name || item?.shortname || '') : []),
     ...(Array.isArray(data.disaster) ? data.disaster.map((item) => item?.name || item?.type || '') : []),
     ...(Array.isArray(data.articles) ? data.articles.flatMap((article) => [article?.title, article?.domain, article?.source_country]) : [])
@@ -375,6 +397,12 @@ function collectSecondaryCountryTerms(event) {
   const data = event.data && typeof event.data === 'object' ? event.data : {};
   const terms = [];
 
+  if (typeof data.country === 'string') {
+    terms.push(data.country);
+  }
+  if (typeof data.location === 'string') {
+    terms.push(data.location);
+  }
   if (typeof data.attention_country === 'string') {
     terms.push(data.attention_country);
   }
@@ -455,6 +483,10 @@ function getPublisherCount(event) {
     return Array.isArray(data.source) ? data.source.length : 0;
   }
 
+  if (RSS_SECONDARY_SOURCES.has(event.source)) {
+    return 1;
+  }
+
   return 0;
 }
 
@@ -468,7 +500,49 @@ function getArticleCount(event) {
     return 1;
   }
 
+  if (RSS_SECONDARY_SOURCES.has(event.source)) {
+    return 1;
+  }
+
   return 0;
+}
+
+function getPublisherSignal(event, publisherCount) {
+  const data = event.data && typeof event.data === 'object' ? event.data : {};
+  if (event.source === 'gdelt' || event.source === 'reliefweb') {
+    return clamp(Math.min(publisherCount / 8, 1));
+  }
+
+  if (RSS_SECONDARY_SOURCES.has(event.source)) {
+    return clamp(Number(data.trust_base_score || 0.75));
+  }
+
+  return 0;
+}
+
+function getArticleSignal(event, articleCount) {
+  if (event.source === 'gdelt') {
+    return clamp(Math.min(articleCount / 12, 1));
+  }
+
+  if (event.source === 'reliefweb') {
+    return 0.45;
+  }
+
+  if (RSS_SECONDARY_SOURCES.has(event.source)) {
+    return 0.35;
+  }
+
+  return 0;
+}
+
+function getSecondaryDedupeKey(event) {
+  const data = event.data && typeof event.data === 'object' ? event.data : {};
+  if (RSS_SECONDARY_SOURCES.has(event.source)) {
+    return `domain:${String(data.source_domain || '').trim().toLowerCase() || event.source}`;
+  }
+
+  return `event:${event.secondaryEventId || event.id || event.source}`;
 }
 
 function maxOf(matches, key) {

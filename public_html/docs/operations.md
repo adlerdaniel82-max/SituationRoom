@@ -102,8 +102,12 @@ node public_html/backend/src/jobs/run-firms.js
 node public_html/backend/src/jobs/run-reliefweb.js
 node public_html/backend/src/jobs/run-opensky.js
 node public_html/backend/src/jobs/run-bbc.js
-node public_html/backend/src/jobs/run-ap.js
-node public_html/backend/src/jobs/run-reuters.js
+node public_html/backend/src/jobs/run-guardian.js
+node public_html/backend/src/jobs/run-aljazeera.js
+node public_html/backend/src/jobs/run-dw.js
+node public_html/backend/src/jobs/run-france24.js
+node public_html/backend/src/jobs/run-npr.js
+node public_html/backend/src/jobs/run-skynews.js
 node public_html/backend/src/jobs/run-acled.js
 node public_html/backend/src/jobs/backfill-scoring.js
 node public_html/backend/src/jobs/backfill-news-validation.js
@@ -118,8 +122,14 @@ Aktuelle Soll-Intervalle laut `sources`-Seeds:
 - `reliefweb`: `1800s`
 - `opensky`: `60s`
 - `bbc`: `1800s`
-- `ap`: `1800s`, derzeit deaktiviert
-- `reuters`: `1800s`, derzeit deaktiviert
+- `guardian`: `1800s`
+- `aljazeera`: `1800s`
+- `dw`: `1800s`
+- `france24`: `1800s`
+- `npr`: `1800s`
+- `skynews`: `1800s`
+- `ap`: technisch stillgelegt / nicht mehr als Feedquelle verwenden
+- `reuters`: technisch stillgelegt / nicht mehr als Feedquelle verwenden
 - `acled`: `3600s`, operativ ausgeblendet und deaktiviert
 
 ## Job-Locks
@@ -141,7 +151,7 @@ Wenn ein Job fälschlich dauerhaft als gesperrt erscheint:
 ### GDELT
 
 - `GDELT` ist ein Attention-Layer, kein Primärfeed.
-- Das Panel `Wichtigste Meldungen` mischt aktuell priorisierte News aus `BBC`, `GDELT`, `ReliefWeb` und optional `Reuters`.
+- Das Panel `Wichtigste Meldungen` nutzt sichtbare RSS-Newsfeeds; `GDELT` bleibt die zentrale News-Engine für Suche, Validierung und spätere Heatmaps.
 - `GDELT` wird zusätzlich als sekundäre Validierungsquelle für Primärevents ausgewertet.
 - Die API kann bei zu engem Polling `429 Too Many Requests` liefern.
 
@@ -165,17 +175,17 @@ Empfehlung bei `429`:
 - ReliefWeb wird zusätzlich als sekundäre Validierungsquelle für Primärevents ausgewertet.
 - Bei `403` zuerst prüfen, ob der aktuelle App-Name von ReliefWeb bereits freigeschaltet wurde.
 
-### BBC / Reuters
+### RSS News
 
-- `BBC` ist als zusätzliche sekundäre Newsquelle aktiv.
+- Aktive RSS-Newsquellen: `BBC`, `Guardian`, `Al Jazeera`, `DW`, `France24`, `NPR`, `Sky News`.
+- RSS dient als sichtbarer Feed und zusätzliche Validierung, aber nicht als zentrale News-Engine.
+- `GDELT` bleibt der wichtigste technische News-Layer für Suche, Validation und Attention.
 - Die aktuelle Ortsauflösung für News-Feeds ist konservativ und verwirft viele Einträge ohne brauchbaren Länderbezug.
+- Zusätzlich greifen Vorfilter auf Zeitfenster, Keywords und plausiblen Ortsbezug.
 - News-Ereignisse speichern nach Möglichkeit `content_language` bzw. `content_languages`, damit Originalsprache sichtbar bleibt.
 - Eine echte Übersetzung von Titeln/Beschreibungen ist derzeit nicht Teil der Pipeline; im Frontend gibt es stattdessen fuer fremdsprachige Meldungen den externen Link `Uebersetzt oeffnen` ueber Google Translate.
-- `Reuters` ist bereits integriert, bleibt aber deaktiviert, bis die Feed-Endpunkte fachlich bestätigt sind.
-- `AP` ist operativ stillgelegt, weil keine verlässliche RSS-Quelle mehr verfügbar ist.
+- `AP` und `Reuters` werden nicht mehr als technische Feed-Quellen verwendet.
 - Nach größeren Änderungen an diesen Feed-Importern einmal `backfill-news-validation.js` laufen lassen.
-
-### GDELT
 
 - GDELT liefert auf diesem Host derzeit häufig `429 Too Many Requests`.
 - Der Importer nutzt deshalb jetzt automatisch den letzten erfolgreichen Rohsnapshot als Fallback.

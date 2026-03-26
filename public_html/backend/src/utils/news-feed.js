@@ -2,15 +2,41 @@ const axios = require('axios');
 const { resolveCountryCentroid } = require('./country-centroid');
 
 const EVENT_TYPE_KEYWORDS = {
-  earthquake: ['earthquake', 'quake', 'seismic'],
+  earthquake: ['earthquake', 'quake', 'seismic', 'tremor', 'erdbeben'],
   tsunami: ['tsunami', 'tidal wave'],
-  volcano: ['volcano', 'volcanic', 'eruption'],
-  flood: ['flood', 'flooding', 'inundation'],
-  fire: ['wildfire', 'wild fire', 'bushfire', 'forest fire'],
-  hurricane: ['hurricane', 'cyclone', 'typhoon'],
-  conflict: ['war', 'conflict', 'military', 'strike', 'attack'],
-  humanitarian: ['humanitarian', 'refugee', 'evacuation', 'crisis']
+  volcano: ['volcano', 'volcanic', 'eruption', 'ash cloud', 'vulkan'],
+  flood: ['flood', 'flooding', 'inundation', 'flash flood', 'ueberschwemmung', 'hochwasser'],
+  fire: ['wildfire', 'wild fire', 'bushfire', 'forest fire', 'blaze', 'firefighters', 'brand', 'feuer'],
+  hurricane: ['hurricane', 'cyclone', 'typhoon', 'storm', 'tropical storm'],
+  conflict: ['war', 'conflict', 'military', 'strike', 'attack', 'invasion', 'missile', 'drone', 'shelling', 'krieg', 'konflikt'],
+  humanitarian: ['humanitarian', 'refugee', 'evacuation', 'crisis', 'aid', 'displacement', 'evacuees', 'krise', 'evakuierung']
 };
+
+const RELEVANT_NEWS_KEYWORDS = Array.from(new Set([
+  ...Object.values(EVENT_TYPE_KEYWORDS).flat(),
+  'disaster',
+  'emergency',
+  'catastrophe',
+  'evacuate',
+  'evacuated',
+  'evacuating',
+  'conflicts',
+  'militant',
+  'troops',
+  'ceasefire',
+  'airstrike',
+  'explosion',
+  'outbreak',
+  'landslide',
+  'drought',
+  'famine',
+  'hostage',
+  'massacre',
+  'attackers',
+  'invasion',
+  'disaster',
+  'katastrophe'
+]));
 
 const LOCATION_PATTERNS = [
   /\b(?:in|near|across|from|over|amid|inside)\s+([A-Z][A-Za-z'’-]+(?:\s+[A-Z][A-Za-z'’-]+){0,2})/g,
@@ -32,8 +58,9 @@ const GENERIC_LOCATION_TERMS = new Set([
 ]);
 
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
-const NOMINATIM_TIMEOUT_MS = 8000;
-const MAX_CANDIDATES = 12;
+const NOMINATIM_TIMEOUT_MS = 1500;
+const MAX_CANDIDATES = 5;
+const MAX_GEOCODE_ATTEMPTS_PER_ITEM = 1;
 const geocodeCache = new Map();
 
 function matchAll(input, regex) {
@@ -44,6 +71,13 @@ function getTag(input, tagName) {
   const escaped = escapeRegExp(tagName);
   const match = String(input || '').match(new RegExp(`<${escaped}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${escaped}>`, 'i'));
   return match ? match[1].trim() : '';
+}
+
+function getTagList(input, tagName) {
+  const escaped = escapeRegExp(tagName);
+  return Array.from(
+    String(input || '').matchAll(new RegExp(`<${escaped}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${escaped}>`, 'gi'))
+  ).map((match) => cleanupText(match[1]));
 }
 
 function parseRfcDate(value) {
@@ -65,8 +99,12 @@ function decodeEntities(value) {
     .replace(/&#39;/g, "'");
 }
 
+function stripHtml(value) {
+  return cleanupText(String(value || '').replace(/<[^>]+>/g, ' '));
+}
+
 function detectEventType(title, description) {
-  const text = `${title} ${description}`.toLowerCase();
+  const text = `${stripHtml(title)} ${stripHtml(description)}`.toLowerCase();
 
   for (const [type, keywords] of Object.entries(EVENT_TYPE_KEYWORDS)) {
     if (keywords.some((keyword) => text.includes(keyword))) {
@@ -77,12 +115,97 @@ function detectEventType(title, description) {
   return 'other';
 }
 
+function extractFeedLanguage(xml) {
+  const fromLanguageTag = decodeEntities(cleanupText(getTag(xml, 'language')));
+  if (fromLanguageTag) {
+    return normalizeLanguageCode(fromLanguageTag);
+  }
+
+  const fromDcLanguage = decodeEntities(cleanupText(getTag(xml, 'dc:language')));
+  if (fromDcLanguage) {
+    return normalizeLanguageCode(fromDcLanguage);
+  }
+
+  return null;
+}
+
+function isRecentNewsItem(pubDate, maxAgeHours = 12) {
+  if (!(pubDate instanceof Date) || Number.isNaN(pubDate.getTime())) {
+    return false;
+  }
+
+  const ageMs = Date.now() - pubDate.getTime();
+  const maxAgeMs = Math.max(1, Number(maxAgeHours) || 12) * 60 * 60 * 1000;
+
+  return ageMs >= -(60 * 60 * 1000) && ageMs <= maxAgeMs;
+}
+
+function isRelevantNewsItem(title, description, categories = [], eventType = 'other') {
+  if (eventType && eventType !== 'other') {
+    return true;
+  }
+
+  const haystack = [
+    stripHtml(title),
+    stripHtml(description),
+    ...(Array.isArray(categories) ? categories : [])
+  ].join(' ').toLowerCase();
+
+  return RELEVANT_NEWS_KEYWORDS.some((keyword) => haystack.includes(String(keyword).toLowerCase()));
+}
+
+function normalizeNewsUrl(value) {
+  const raw = cleanupText(value);
+  if (!raw) {
+    return '';
+  }
+
+  try {
+    const url = new URL(raw);
+    const filteredParams = new URLSearchParams();
+    for (const [key, paramValue] of url.searchParams.entries()) {
+      const normalizedKey = key.toLowerCase();
+      if (
+        normalizedKey.startsWith('utm_')
+        || normalizedKey.startsWith('_x_tr_')
+        || ['at_medium', 'at_campaign', 'rss', 'ocid', 'fbclid', 'gclid', 'cmpid'].includes(normalizedKey)
+      ) {
+        continue;
+      }
+      filteredParams.append(key, paramValue);
+    }
+
+    url.search = filteredParams.toString();
+    url.hash = '';
+    return url.toString().replace(/\?$/, '');
+  } catch {
+    return raw;
+  }
+}
+
+function sourceDomainFromUrl(value) {
+  const raw = cleanupText(value);
+  if (!raw) {
+    return '';
+  }
+
+  try {
+    return String(new URL(raw).hostname || '')
+      .trim()
+      .toLowerCase()
+      .replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
 async function resolveNewsLocation(title, description) {
   const candidates = extractLocationCandidates(title, description);
+  const geocodeState = { attempts: 0 };
 
   for (const candidate of candidates) {
     try {
-      const resolved = await resolveLocationCandidate(candidate);
+      const resolved = await resolveLocationCandidate(candidate, geocodeState);
       if (resolved) {
         return {
           ...resolved,
@@ -137,7 +260,7 @@ function extractDatelineCandidates(text) {
   return candidates;
 }
 
-async function resolveLocationCandidate(candidate) {
+async function resolveLocationCandidate(candidate, geocodeState = { attempts: 0 }) {
   const direct = await resolveCountryCandidate(candidate);
   if (direct) {
     return direct;
@@ -159,6 +282,11 @@ async function resolveLocationCandidate(candidate) {
     return null;
   }
 
+  if ((geocodeState.attempts || 0) >= MAX_GEOCODE_ATTEMPTS_PER_ITEM) {
+    return null;
+  }
+
+  geocodeState.attempts = (geocodeState.attempts || 0) + 1;
   return geocodePlace(candidate);
 }
 
@@ -236,12 +364,25 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function normalizeLanguageCode(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace('_', '-');
+}
+
 module.exports = {
   cleanupText,
   decodeEntities,
   detectEventType,
+  extractFeedLanguage,
   getTag,
+  getTagList,
+  isRecentNewsItem,
+  isRelevantNewsItem,
   matchAll,
+  normalizeNewsUrl,
   parseRfcDate,
-  resolveNewsLocation
+  resolveNewsLocation,
+  sourceDomainFromUrl
 };

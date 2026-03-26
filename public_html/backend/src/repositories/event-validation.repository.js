@@ -5,10 +5,10 @@ async function listCandidateSecondaryEvents(startDate, endDate) {
     `
       SELECT id, title, type, source, lat, lon, timestamp, url, data, score
       FROM events
-      WHERE source IN ('gdelt', 'reliefweb', 'ap', 'reuters', 'bbc')
+      WHERE source IN ('gdelt', 'reliefweb', 'bbc', 'guardian', 'aljazeera', 'dw', 'france24', 'npr', 'skynews')
         AND timestamp BETWEEN ? AND ?
       ORDER BY timestamp DESC
-      LIMIT 500
+      LIMIT 800
     `,
     [startDate, endDate]
   );
@@ -19,7 +19,7 @@ async function listCandidatePrimaryEvents(startDate, endDate) {
     `
       SELECT id, title, type, source, lat, lon, magnitude, depth, affected_population, timestamp, url, data, score, updated_at
       FROM events
-      WHERE source NOT IN ('gdelt', 'reliefweb', 'ap', 'reuters', 'bbc', 'acled')
+      WHERE source NOT IN ('gdelt', 'reliefweb', 'bbc', 'guardian', 'aljazeera', 'dw', 'france24', 'npr', 'skynews', 'acled', 'ap', 'reuters')
         AND timestamp BETWEEN ? AND ?
       ORDER BY timestamp DESC
       LIMIT 1000

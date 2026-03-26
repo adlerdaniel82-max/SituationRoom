@@ -106,52 +106,107 @@ INSERT INTO sources (id, name, type, enabled, interval_seconds, config) VALUES
     )
   ),
   (
-    'ap',
-    'AP News',
-    'humanitarian',
-    0,
-    1800,
-    JSON_OBJECT(
-      'feed_url', 'https://apnews.com/rss',
-      'parse_format', 'rss',
-      'access_model', 'public_feed_review',
-      'timeout', 30
-    )
-  ),
-  (
-    'reuters',
-    'Reuters',
-    'humanitarian',
-    0,
-    1800,
-    JSON_OBJECT(
-      'feed_urls', JSON_ARRAY(
-        'https://www.reutersagency.com/feed/?best-topics=world&post_type=best',
-        'https://www.reutersagency.com/feed/?post_type=best&best-topics=breakingviews'
-      ),
-      'parse_format', 'rss',
-      'access_model', 'public_feed_review',
-      'timeout', 30
-    )
-  ),
-  (
     'bbc',
     'BBC News',
     'humanitarian',
     1,
     1800,
     JSON_OBJECT(
-      'feed_urls', JSON_ARRAY(
-        'https://feeds.bbci.co.uk/news/world/rss.xml',
-        'https://feeds.bbci.co.uk/news/uk/rss.xml',
-        'https://feeds.bbci.co.uk/news/business/rss.xml',
-        'https://feeds.bbci.co.uk/news/politics/rss.xml',
-        'https://feeds.bbci.co.uk/news/health/rss.xml',
-        'https://feeds.bbci.co.uk/news/science_and_environment/rss.xml',
-        'https://feeds.bbci.co.uk/news/technology/rss.xml'
-      ),
+      'feed_urls', JSON_ARRAY('https://feeds.bbci.co.uk/news/world/rss.xml'),
       'parse_format', 'rss',
-      'access_model', 'public_feed_review',
+      'access_model', 'public_feed_stable',
+      'visibility_tier', 'primary',
+      'trust_base_score', 0.92,
+      'timeout', 30
+    )
+  ),
+  (
+    'guardian',
+    'The Guardian',
+    'humanitarian',
+    1,
+    1800,
+    JSON_OBJECT(
+      'feed_urls', JSON_ARRAY('https://www.theguardian.com/world/rss'),
+      'parse_format', 'rss',
+      'access_model', 'public_feed_stable',
+      'visibility_tier', 'primary',
+      'trust_base_score', 0.90,
+      'timeout', 30
+    )
+  ),
+  (
+    'aljazeera',
+    'Al Jazeera',
+    'humanitarian',
+    1,
+    1800,
+    JSON_OBJECT(
+      'feed_urls', JSON_ARRAY('https://www.aljazeera.com/xml/rss/all.xml'),
+      'parse_format', 'rss',
+      'access_model', 'public_feed_stable',
+      'visibility_tier', 'primary',
+      'trust_base_score', 0.88,
+      'timeout', 30
+    )
+  ),
+  (
+    'dw',
+    'DW',
+    'humanitarian',
+    1,
+    1800,
+    JSON_OBJECT(
+      'feed_urls', JSON_ARRAY('https://rss.dw.com/xml/rss-en-all'),
+      'parse_format', 'rss',
+      'access_model', 'public_feed_stable',
+      'visibility_tier', 'secondary',
+      'trust_base_score', 0.87,
+      'timeout', 30
+    )
+  ),
+  (
+    'france24',
+    'France24',
+    'humanitarian',
+    1,
+    1800,
+    JSON_OBJECT(
+      'feed_urls', JSON_ARRAY('https://www.france24.com/en/rss'),
+      'parse_format', 'rss',
+      'access_model', 'public_feed_stable',
+      'visibility_tier', 'secondary',
+      'trust_base_score', 0.86,
+      'timeout', 30
+    )
+  ),
+  (
+    'npr',
+    'NPR',
+    'humanitarian',
+    1,
+    1800,
+    JSON_OBJECT(
+      'feed_urls', JSON_ARRAY('https://feeds.npr.org/1004/rss.xml'),
+      'parse_format', 'rss',
+      'access_model', 'public_feed_stable',
+      'visibility_tier', 'secondary',
+      'trust_base_score', 0.89,
+      'timeout', 30
+    )
+  ),
+  (
+    'skynews',
+    'Sky News',
+    'humanitarian',
+    1,
+    1800,
+    JSON_OBJECT(
+      'feed_urls', JSON_ARRAY('https://feeds.skynews.com/feeds/rss/world.xml'),
+      'parse_format', 'rss',
+      'access_model', 'public_feed_stable',
+      'visibility_tier', 'secondary',
+      'trust_base_score', 0.85,
       'timeout', 30
     )
   ),

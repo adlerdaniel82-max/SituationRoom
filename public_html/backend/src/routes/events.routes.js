@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const eventsController = require('../controllers/events.controller');
+const { reportIndustrialRateLimit } = require('../middleware/report-rate-limit');
 
 // GET /api/events - List events with filters
 router.get('/', eventsController.list);
@@ -15,7 +16,7 @@ router.get('/stats', eventsController.getStats);
 router.get('/:id/validation', eventsController.getValidation);
 
 // POST /api/events/:id/report-industrial - Mark FIRMS fire event as industrial heat
-router.post('/:id/report-industrial', eventsController.reportIndustrialHeat);
+router.post('/:id/report-industrial', reportIndustrialRateLimit, eventsController.reportIndustrialHeat);
 
 // GET /api/events/:id - Get single event
 router.get('/:id', eventsController.getById);

@@ -16,6 +16,7 @@ module.exports = {
   port: parseInt(process.env.PORT, 10) || 3001,
   wsPort: parseInt(process.env.WS_PORT, 10) || 3001,
   logLevel: process.env.LOG_LEVEL || 'info',
+  adminApiKey: process.env.ADMIN_API_KEY || '',
   
   db: {
     host: process.env.DB_HOST || 'localhost',

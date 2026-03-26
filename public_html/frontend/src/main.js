@@ -32,7 +32,7 @@ const I18N = {
       sourceStatusUnavailable: 'Quellenstatus nicht verfügbar.',
       noMarkets: 'Keine Marktdaten geladen.',
       noStats: 'Statistiken nicht verfügbar.',
-      noImportantEvents: 'Keine relevanten News-Meldungen im aktuellen Kartenausschnitt.',
+      noImportantEvents: 'Keine relevanten Meldungen aus den aktiven Newsquellen.',
       mapAria: 'Situationskarte',
       worldMapAria: 'Weltkarte',
       closePanel: 'Panel schließen',
@@ -205,7 +205,7 @@ const I18N = {
       sourceStatusUnavailable: 'Source status unavailable.',
       noMarkets: 'No market data loaded.',
       noStats: 'Statistics unavailable.',
-      noImportantEvents: 'No relevant news reports in the current map view.',
+      noImportantEvents: 'No relevant reports from the active news feeds.',
       mapAria: 'Situation map',
       worldMapAria: 'World map',
       closePanel: 'Close panel',
@@ -377,7 +377,7 @@ const DEFAULT_MAP_CONFIG = {
     maptiler: null
   }
 };
-const IMPORTANT_EVENT_SOURCES = ['bbc', 'gdelt', 'reliefweb', 'reuters'];
+const IMPORTANT_EVENT_SOURCES = ['bbc', 'guardian', 'aljazeera', 'dw', 'france24', 'npr', 'skynews'];
 const IMPORTANT_EVENT_LIMIT = 20;
 const LANGUAGE_NAME_TO_CODE = new Map([
   ['arabic', 'ar'],
@@ -414,8 +414,13 @@ const SOURCE_OPTIONS = [
   { value: 'firms', label: 'FIRMS' },
   { value: 'reliefweb', label: 'ReliefWeb' },
   { value: 'opensky', label: 'OpenSky' },
-  { value: 'reuters', label: 'Reuters' },
-  { value: 'bbc', label: 'BBC' }
+  { value: 'bbc', label: 'BBC' },
+  { value: 'guardian', label: 'Guardian' },
+  { value: 'aljazeera', label: 'Al Jazeera' },
+  { value: 'dw', label: 'DW' },
+  { value: 'france24', label: 'France24' },
+  { value: 'npr', label: 'NPR' },
+  { value: 'skynews', label: 'Sky News' }
 ];
 const SOURCE_MARKER_STYLES = {
   usgs: { shape: 'circle', fill: '#f26b38', stroke: '#fff5ea' },
@@ -429,9 +434,15 @@ const SOURCE_MARKER_STYLES = {
   ap: { shape: 'circle', fill: '#111111', stroke: '#f5f5f5' },
   reuters: { shape: 'diamond', fill: '#ff6b00', stroke: '#fff0e0' },
   bbc: { shape: 'square', fill: '#b80024', stroke: '#ffe2e8' },
+  guardian: { shape: 'diamond', fill: '#083c5a', stroke: '#d8f2ff' },
+  aljazeera: { shape: 'hexagon', fill: '#d2a23c', stroke: '#fff1d8' },
+  dw: { shape: 'circle', fill: '#0d5fd1', stroke: '#dceaff' },
+  france24: { shape: 'triangle', fill: '#245cb8', stroke: '#dde9ff' },
+  npr: { shape: 'cross', fill: '#d14b3b', stroke: '#ffe1dd' },
+  skynews: { shape: 'square', fill: '#395ebc', stroke: '#e2e9ff' },
   default: { shape: 'circle', fill: '#7b8794', stroke: '#f3f4f6' }
 };
-const HIDDEN_SOURCE_IDS = new Set(['acled', 'ap']);
+const HIDDEN_SOURCE_IDS = new Set(['acled', 'ap', 'reuters']);
 const FILTER_STORAGE_KEY = 'situation-room.filters.v2';
 const LEGACY_FILTER_STORAGE_KEY = 'situation-room.filters.v1';
 const CLIENT_ID_STORAGE_KEY = 'situation-room.client-id';
@@ -439,7 +450,7 @@ const EMPTY_FILTER_SENTINEL = '__none__';
 const EVENT_RESPONSE_FORMAT = 'geojson';
 const DEFAULT_SOURCE_FILTERS = new Set(
   SOURCE_OPTIONS
-    .filter((entry) => !['gdelt', 'ap', 'reuters', 'bbc'].includes(entry.value))
+    .filter((entry) => !['gdelt', 'bbc', 'guardian', 'aljazeera', 'dw', 'france24', 'npr', 'skynews'].includes(entry.value))
     .map((entry) => entry.value)
 );
 const persistedFilters = loadStoredFilters();
@@ -864,6 +875,12 @@ function installMapLayers() {
         'ap', 'source-marker-ap',
         'reuters', 'source-marker-reuters',
         'bbc', 'source-marker-bbc',
+        'guardian', 'source-marker-guardian',
+        'aljazeera', 'source-marker-aljazeera',
+        'dw', 'source-marker-dw',
+        'france24', 'source-marker-france24',
+        'npr', 'source-marker-npr',
+        'skynews', 'source-marker-skynews',
         'source-marker-default'
       ],
       'icon-size': [
@@ -1066,16 +1083,6 @@ async function loadViewportData() {
 async function loadImportantEvents() {
   try {
     const params = new URLSearchParams();
-    const bounds = state.map.getBounds();
-    const west = bounds.getWest();
-    const south = bounds.getSouth();
-    const east = bounds.getEast();
-    const north = bounds.getNorth();
-
-    if (east >= west) {
-      params.set('bbox', `${west},${south},${east},${north}`);
-    }
-
     params.set('source', IMPORTANT_EVENT_SOURCES.join(','));
     params.set('limit', String(IMPORTANT_EVENT_LIMIT * 3));
 
@@ -1331,10 +1338,10 @@ function resetFilters() {
 }
 
 function renderEventList() {
-  const importantEvents = dedupeImportantEvents(state.importantEvents
+  const importantEvents = balanceImportantEvents(dedupeImportantEvents(state.importantEvents
     .filter((event) => IMPORTANT_EVENT_SOURCES.includes(event.source))
     .sort((left, right) => rankImportantEvent(right) - rankImportantEvent(left))
-  ).slice(0, IMPORTANT_EVENT_LIMIT);
+  )).slice(0, IMPORTANT_EVENT_LIMIT);
 
   nodes.eventCount.textContent = String(importantEvents.length);
 
@@ -1389,7 +1396,7 @@ function dedupeImportantEvents(events) {
 function rankImportantEvent(event) {
   const score = Number.isFinite(Number(event.score)) ? Number(event.score) : 0;
   const ageHours = Math.max(0, (Date.now() - new Date(event.timestamp).getTime()) / (1000 * 60 * 60));
-  const recency = Math.max(0, 1 - (ageHours / 72));
+  const recency = Math.max(0, 1 - (ageHours / 18));
   const sourceWeight = getImportantSourceWeight(event.source);
   return (score * 0.6) + (recency * 0.3) + (sourceWeight * 0.1);
 }
@@ -1398,12 +1405,18 @@ function getImportantSourceWeight(source) {
   switch (source) {
     case 'bbc':
       return 0.92;
-    case 'reuters':
-      return 0.96;
-    case 'reliefweb':
-      return 0.72;
-    case 'gdelt':
-      return 0.58;
+    case 'guardian':
+      return 0.9;
+    case 'npr':
+      return 0.89;
+    case 'aljazeera':
+      return 0.88;
+    case 'dw':
+      return 0.87;
+    case 'france24':
+      return 0.86;
+    case 'skynews':
+      return 0.85;
     default:
       return 0.5;
   }
@@ -1413,15 +1426,62 @@ function getNewsSourceLabel(source) {
   switch (source) {
     case 'bbc':
       return 'BBC';
-    case 'gdelt':
-      return 'GDELT';
-    case 'reliefweb':
-      return 'ReliefWeb';
-    case 'reuters':
-      return 'Reuters';
+    case 'guardian':
+      return 'Guardian';
+    case 'aljazeera':
+      return 'Al Jazeera';
+    case 'dw':
+      return 'DW';
+    case 'france24':
+      return 'France24';
+    case 'npr':
+      return 'NPR';
+    case 'skynews':
+      return 'Sky News';
     default:
       return String(source || '').toUpperCase();
   }
+}
+
+function balanceImportantEvents(events) {
+  const selected = [];
+  const deferred = [];
+  const domainCounts = new Map();
+
+  for (const event of events) {
+    const domain = getEventSourceDomain(event);
+    const count = domainCounts.get(domain) || 0;
+    if (count === 0) {
+      selected.push(event);
+      domainCounts.set(domain, 1);
+      continue;
+    }
+
+    deferred.push(event);
+  }
+
+  for (const event of deferred) {
+    if (selected.length >= IMPORTANT_EVENT_LIMIT) {
+      break;
+    }
+
+    const domain = getEventSourceDomain(event);
+    const count = domainCounts.get(domain) || 0;
+    if (count >= 2) {
+      continue;
+    }
+
+    selected.push(event);
+    domainCounts.set(domain, count + 1);
+  }
+
+  return selected;
+}
+
+function getEventSourceDomain(event) {
+  return String(event?.data?.source_domain || event?.url || event?.source || 'unknown')
+    .trim()
+    .toLowerCase();
 }
 
 function renderSources() {

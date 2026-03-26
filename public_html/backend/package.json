@@ -16,17 +16,25 @@
     "job:acled": "node src/jobs/run-acled.js",
     "job:reliefweb": "node src/jobs/run-reliefweb.js",
     "job:opensky": "node src/jobs/run-opensky.js",
+    "job:bbc": "node src/jobs/run-bbc.js",
+    "job:guardian": "node src/jobs/run-guardian.js",
+    "job:aljazeera": "node src/jobs/run-aljazeera.js",
+    "job:dw": "node src/jobs/run-dw.js",
+    "job:france24": "node src/jobs/run-france24.js",
+    "job:npr": "node src/jobs/run-npr.js",
+    "job:skynews": "node src/jobs/run-skynews.js",
     "job:cleanup": "node src/jobs/cleanup.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "mysql2": "^3.6.0",
-    "dotenv": "^16.3.1",
     "axios": "^1.5.0",
-    "ws": "^8.14.0",
-    "winston": "^3.10.0",
     "cors": "^2.8.5",
-    "node-cron": "^3.0.0"
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^8.3.1",
+    "mysql2": "^3.6.0",
+    "node-cron": "^3.0.0",
+    "winston": "^3.10.0",
+    "ws": "^8.14.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
