@@ -84,7 +84,8 @@ function parseEntry(entryXml, center) {
       bulletin_issue_time: bulletinIssueTime || null,
       bulletin_title: title,
       summary,
-      cap_url: capUrl || null
+      cap_url: capUrl || null,
+      content_language: 'en'
     }
   };
 }

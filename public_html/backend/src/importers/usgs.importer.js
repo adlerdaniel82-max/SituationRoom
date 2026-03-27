@@ -32,7 +32,7 @@ async function run() {
         magnitude: feature.properties.mag,
         timestamp: new Date(feature.properties.time),
         url: feature.properties.url,
-        data: feature.properties
+        data: { ...feature.properties, content_language: 'en' }
       };
 
       const result = await eventService.create(event);

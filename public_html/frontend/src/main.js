@@ -2248,7 +2248,7 @@ function buildTranslatedSourceUrl(event) {
   const sourceLanguage = getPrimaryEventLanguageCode(event);
   const targetLanguage = state.language === 'en' ? 'en' : 'de';
 
-  if (!sourceLanguage || sourceLanguage === targetLanguage) {
+  if (!sourceLanguage || sourceLanguage.split('-')[0] === targetLanguage.split('-')[0]) {
     return null;
   }
 

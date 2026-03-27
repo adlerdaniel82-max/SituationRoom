@@ -104,7 +104,8 @@ function parseGdacsFeed(xml) {
           dateModified: parseRfcDate(getTag(itemXml, 'gdacs:datemodified')),
           isCurrent: getTag(itemXml, 'gdacs:iscurrent') === 'true',
           temporary: getTag(itemXml, 'gdacs:temporary') === 'true',
-          rawTitle: title
+          rawTitle: title,
+          content_language: 'en'
         }
       };
     })
