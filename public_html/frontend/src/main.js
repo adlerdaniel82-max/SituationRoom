@@ -43,7 +43,10 @@ const I18N = {
       focusMap: 'Auf Karte fokussieren',
       openSource: 'Quelle öffnen',
       openTranslated: 'Übersetzt öffnen',
-      reportIndustrial: 'Als Industrieanlage markieren'
+      reportIndustrial: 'Als Industrieanlage markieren',
+      layersSection: 'Karten-Layer',
+      heatmapIncidents: 'Vorfälle-Heatmap',
+      heatmapAttention: 'Aufmerksamkeits-Heatmap'
     },
     status: {
       initializing: 'Initialisiere …',
@@ -216,7 +219,10 @@ const I18N = {
       focusMap: 'Focus on map',
       openSource: 'Open source',
       openTranslated: 'Open translated',
-      reportIndustrial: 'Mark as industrial site'
+      reportIndustrial: 'Mark as industrial site',
+      layersSection: 'Map Layers',
+      heatmapIncidents: 'Incident Heatmap',
+      heatmapAttention: 'Attention Heatmap'
     },
     status: {
       initializing: 'Initializing …',
@@ -445,6 +451,7 @@ const SOURCE_MARKER_STYLES = {
 const HIDDEN_SOURCE_IDS = new Set(['acled', 'ap', 'reuters']);
 const FILTER_STORAGE_KEY = 'situation-room.filters.v2';
 const LEGACY_FILTER_STORAGE_KEY = 'situation-room.filters.v1';
+const HEATMAP_STORAGE_KEY = 'situation-room.heatmap.v1';
 const CLIENT_ID_STORAGE_KEY = 'situation-room.client-id';
 const EMPTY_FILTER_SENTINEL = '__none__';
 const EVENT_RESPONSE_FORMAT = 'geojson';
@@ -454,6 +461,9 @@ const DEFAULT_SOURCE_FILTERS = new Set(
     .map((entry) => entry.value)
 );
 const persistedFilters = loadStoredFilters();
+const persistedHeatmap = (() => {
+  try { return JSON.parse(localStorage.getItem(HEATMAP_STORAGE_KEY) || 'null'); } catch { return null; }
+})();
 
 const state = {
   map: null,
@@ -482,7 +492,11 @@ const state = {
   marketRefreshTimer: null,
   ws: null,
   reconnectTimer: null,
-  reconnectDelay: 1000
+  reconnectDelay: 1000,
+  heatmap: {
+    incidents: persistedHeatmap?.incidents ?? false,
+    attention: persistedHeatmap?.attention ?? false
+  }
 };
 
 const nodes = {
@@ -520,7 +534,12 @@ const nodes = {
   detailBackdrop: document.getElementById('detail-backdrop'),
   detailPanel: document.getElementById('detail-panel'),
   statusBadge: document.getElementById('status-badge'),
-  metaDescription: document.getElementById('meta-description')
+  metaDescription: document.getElementById('meta-description'),
+  layersSectionTitle: document.getElementById('layers-section-title'),
+  heatmapIncidentsToggle: document.getElementById('heatmap-incidents-toggle'),
+  heatmapIncidentsLabel: document.getElementById('heatmap-incidents-label'),
+  heatmapAttentionToggle: document.getElementById('heatmap-attention-toggle'),
+  heatmapAttentionLabel: document.getElementById('heatmap-attention-label')
 };
 
 document.addEventListener('DOMContentLoaded', init);
@@ -566,6 +585,34 @@ function bindUi() {
   });
 
   syncSourcesPanel();
+
+  if (nodes.heatmapIncidentsToggle) {
+    nodes.heatmapIncidentsToggle.checked = state.heatmap.incidents;
+    nodes.heatmapIncidentsToggle.addEventListener('change', () => {
+      state.heatmap.incidents = nodes.heatmapIncidentsToggle.checked;
+      saveStoredHeatmap();
+      if (state.map?.getLayer('heatmap-incidents')) {
+        state.map.setLayoutProperty('heatmap-incidents', 'visibility', state.heatmap.incidents ? 'visible' : 'none');
+      }
+      if (state.heatmap.incidents) {
+        loadHeatmapData();
+      }
+    });
+  }
+
+  if (nodes.heatmapAttentionToggle) {
+    nodes.heatmapAttentionToggle.checked = state.heatmap.attention;
+    nodes.heatmapAttentionToggle.addEventListener('change', () => {
+      state.heatmap.attention = nodes.heatmapAttentionToggle.checked;
+      saveStoredHeatmap();
+      if (state.map?.getLayer('heatmap-attention')) {
+        state.map.setLayoutProperty('heatmap-attention', 'visibility', state.heatmap.attention ? 'visible' : 'none');
+      }
+      if (state.heatmap.attention) {
+        loadHeatmapData();
+      }
+    });
+  }
 }
 
 async function initMap(mapConfig, view = null) {
@@ -590,6 +637,7 @@ async function initMap(mapConfig, view = null) {
     installMapLayers();
     wireMapInteractions();
     await loadViewportData();
+    await loadHeatmapData();
     scheduleViewportRefresh(250);
   });
 
@@ -709,6 +757,16 @@ function renderStaticText() {
   nodes.mapCanvas.setAttribute('aria-label', t('ui.worldMapAria'));
   nodes.langSwitchDe.classList.toggle('is-active', state.language === 'de');
   nodes.langSwitchEn.classList.toggle('is-active', state.language === 'en');
+
+  if (nodes.layersSectionTitle) {
+    nodes.layersSectionTitle.textContent = t('ui.layersSection');
+  }
+  if (nodes.heatmapIncidentsLabel) {
+    nodes.heatmapIncidentsLabel.textContent = t('ui.heatmapIncidents');
+  }
+  if (nodes.heatmapAttentionLabel) {
+    nodes.heatmapAttentionLabel.textContent = t('ui.heatmapAttention');
+  }
 
   if (!state.map) {
     nodes.statusBadge.textContent = t('status.initializing');
@@ -919,6 +977,55 @@ function installMapLayers() {
       'circle-stroke-width': 2
     }
   });
+
+  installHeatmapLayers();
+}
+
+function installHeatmapLayers() {
+  state.map.addSource('heatmap-incidents', { type: 'geojson', data: emptyFeatureCollection() });
+  state.map.addSource('heatmap-attention', { type: 'geojson', data: emptyFeatureCollection() });
+
+  state.map.addLayer({
+    id: 'heatmap-incidents',
+    type: 'heatmap',
+    source: 'heatmap-incidents',
+    layout: { visibility: state.heatmap.incidents ? 'visible' : 'none' },
+    paint: {
+      'heatmap-weight': ['interpolate', ['linear'], ['coalesce', ['to-number', ['get', 'weight']], 0], 0, 0, 5, 1],
+      'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 1, 6, 3],
+      'heatmap-color': [
+        'interpolate', ['linear'], ['heatmap-density'],
+        0, 'rgba(0,0,0,0)',
+        0.2, 'rgba(180,70,10,0.3)',
+        0.5, 'rgba(220,100,20,0.55)',
+        0.8, 'rgba(240,150,30,0.75)',
+        1.0, 'rgba(255,210,60,0.9)'
+      ],
+      'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 28, 5, 55],
+      'heatmap-opacity': 0.8
+    }
+  }, 'event-clusters');
+
+  state.map.addLayer({
+    id: 'heatmap-attention',
+    type: 'heatmap',
+    source: 'heatmap-attention',
+    layout: { visibility: state.heatmap.attention ? 'visible' : 'none' },
+    paint: {
+      'heatmap-weight': ['interpolate', ['linear'], ['coalesce', ['to-number', ['get', 'weight']], 0], 0, 0, 50000, 1],
+      'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 1, 6, 2],
+      'heatmap-color': [
+        'interpolate', ['linear'], ['heatmap-density'],
+        0, 'rgba(0,0,0,0)',
+        0.2, 'rgba(20,80,160,0.3)',
+        0.5, 'rgba(30,140,210,0.55)',
+        0.8, 'rgba(50,200,230,0.75)',
+        1.0, 'rgba(100,240,255,0.9)'
+      ],
+      'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 35, 5, 65],
+      'heatmap-opacity': 0.7
+    }
+  }, 'event-clusters');
 }
 
 function registerSourceMarkerImages() {
@@ -1122,6 +1229,46 @@ async function loadMarkets() {
     console.error('Failed to load market snapshot:', error);
     state.markets = [];
     renderMarkets();
+  }
+}
+
+async function loadHeatmapData() {
+  if (!state.map?.getSource('heatmap-incidents')) {
+    return;
+  }
+
+  if (state.heatmap.incidents) {
+    try {
+      const rows = await fetchJson('/api/stats/hot-regions?limit=50&hours=48');
+      const features = Array.isArray(rows)
+        ? rows.map((row) => ({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [Number(row.lon), Number(row.lat)] },
+            properties: { weight: Math.min(Number(row.event_count || 1), 5) }
+          }))
+        : [];
+      state.map.getSource('heatmap-incidents').setData({ type: 'FeatureCollection', features });
+    } catch (error) {
+      console.error('Failed to load heatmap incidents data:', error);
+    }
+  }
+
+  if (state.heatmap.attention) {
+    try {
+      const params = new URLSearchParams({ source: 'gdelt', limit: '200' });
+      const payload = await fetchJson(`/api/events?${params.toString()}`);
+      const events = Array.isArray(payload) ? payload : [];
+      const features = events
+        .filter((event) => Number.isFinite(Number(event.lat)) && Number.isFinite(Number(event.lon)))
+        .map((event) => ({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [Number(event.lon), Number(event.lat)] },
+          properties: { weight: Number(event.score || 0) * 50000 }
+        }));
+      state.map.getSource('heatmap-attention').setData({ type: 'FeatureCollection', features });
+    } catch (error) {
+      console.error('Failed to load heatmap attention data:', error);
+    }
   }
 }
 
@@ -1651,6 +1798,17 @@ function saveStoredFilters() {
     }));
   } catch {
     // Ignore storage errors in privacy mode / restricted browsers.
+  }
+}
+
+function saveStoredHeatmap() {
+  try {
+    window.localStorage.setItem(HEATMAP_STORAGE_KEY, JSON.stringify({
+      incidents: state.heatmap.incidents,
+      attention: state.heatmap.attention
+    }));
+  } catch {
+    // Ignore storage errors.
   }
 }
 
