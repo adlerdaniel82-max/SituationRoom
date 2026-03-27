@@ -9,8 +9,11 @@ Aktueller Funktionsstand:
 - Node-Backend unter `public_html/backend/`
 - MariaDB als Primärspeicher
 - Live-Frontend mit MapLibre, Viewport-Fetch, Filtern, WebSocket-Updates und Detailmodals
+- Heatmap-Layer (Vorfälle warm/orange + Aufmerksamkeit blau) als optionale Karten-Layer via Toggle
 - eigenes Meldungsfenster für priorisierte RSS-News aus `BBC`, `Guardian`, `Al Jazeera`, `DW`, `France24`, `NPR` und `Sky News`
-- mehrteiliges Scoring pro Event mit `source_confidence`, `event_severity`, `validation_score` und `attention_score`
+- mehrteiliges Scoring pro Event: `source_confidence` (inkl. `trust_base_score` aus Quellenconfig + `is_state_affiliated`-Penalty), `event_severity`, `validation_score`, `attention_score`
+- Admin-API-Key-Absicherung für quellenmutatierende Endpunkte (`require-admin-key.js`)
+- Rate Limiting für Community-Meldungen (`POST /api/events/:id/report-industrial`, max. 10/15min/IP)
 - Nginx-Setup produktiv auf `situation.schnueddels.de`
 
 Wichtige Einschränkungen:
@@ -99,6 +102,7 @@ Wichtige Variablen:
 - `MAPTILER_MAP_ID`
 - `MAPTILER_LABEL_LANGUAGE`
 - `MAPTILER_LABEL_FALLBACK`
+- `ADMIN_API_KEY` (sichert `PUT /api/sources/:id` und `POST /api/sources/:id/run` via `x-api-key` Header; ohne konfigurierten Key → 503)
 
 ## Migrationen
 
@@ -165,8 +169,9 @@ Wartungsjobs:
 - `node public_html/backend/src/jobs/backfill-news-validation.js`
 
 Die News-Architektur trennt bewusst zwischen zentraler News-Engine und sichtbaren RSS-Feeds:
-- `GDELT` bleibt die zentrale Engine für News-Suche, Event-Validierung, globalen News-Layer und spätere Heatmaps.
+- `GDELT` bleibt die zentrale Engine für News-Suche, Event-Validierung, globalen News-Layer und den Aufmerksamkeits-Heatmap-Layer.
 - Sichtbare RSS-Newsfeeds sind aktuell `BBC`, `Guardian`, `Al Jazeera`, `DW`, `France24`, `NPR` und `Sky News`.
+- RSS-Importer: Wenn >50% der konfigurierten Feeds einer Quelle beim Importlauf scheitern, setzt der source-runner `last_status = 'warning: X/Y feeds failed'` statt `'ok'`. Nur wenn 0 Feeds antworten, schlägt der Job als `error` fehl.
 - `AP` und `Reuters` werden nicht mehr als technische Feed-Quellen verwendet, weil die öffentlich verfügbaren RSS-Endpunkte nicht stabil nutzbar sind.
 
 `ACLED` bleibt im Codebestand erhalten, ist operativ aber ausgeblendet und deaktiviert, weil der benötigte API-Zugang aktuell nicht finanzierbar ist.
@@ -204,10 +209,14 @@ Ausführlichere Betriebs- und Recovery-Hinweise:
 Der aktuelle Desktop-Aufbau:
 - Karte als zentrales Monitor-Element
 - Stats links
-- Filter und Quellen rechts
+- Filter, Quellen und Karten-Layer-Toggles rechts
 - wichtigste Meldungen und Märkte unten
 - Impressum/Datenschutz im Footer
 - Detailansichten als zentrierte Modals
+
+Heatmap-Layer (optional per Toggle, Zustand in localStorage):
+- **Vorfälle-Heatmap** (warm/orange): Daten aus `/api/stats/hot-regions` (5°-Buckets der letzten 48h)
+- **Aufmerksamkeits-Heatmap** (blau): GDELT-Events gewichtet nach `score`, bildet mediale Intensität ab
 
 Die Basiskarte kann mit MapTiler `dataviz-v4-dark` und deutscher Primärsprache betrieben werden, wenn `MAPTILER_API_KEY` gesetzt ist.
 
