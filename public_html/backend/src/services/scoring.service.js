@@ -64,6 +64,15 @@ async function calculateDetailed(eventData) {
 }
 
 function calculateSourceConfidence(eventData) {
+  // For RSS news sources, prefer the trust score stored at ingest time over the static fallback.
+  // Apply a small penalty for state-affiliated outlets (less editorial independence).
+  if (RSS_NEWS_SOURCES.has(eventData.source)) {
+    const storedTrust = Number(eventData.data?.trust_base_score);
+    const baseScore = Number.isFinite(storedTrust) ? storedTrust : (SOURCE_CONFIDENCE_SCORES[eventData.source] ?? 0.5);
+    const statePenalty = eventData.data?.is_state_affiliated === true ? -0.04 : 0;
+    return clampScore(baseScore + statePenalty);
+  }
+
   const baseScore = SOURCE_CONFIDENCE_SCORES[eventData.source] ?? 0.5;
 
   if (eventData.source === 'gdacs') {
