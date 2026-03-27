@@ -70,6 +70,8 @@ const I18N = {
     },
     detail: {
       eyebrowEvent: 'Ereignisdetail',
+      eyebrowGroup: 'Mehrere Meldungen',
+      groupCount: '{count} Meldungen an dieser Position',
       eyebrowLegal: 'Rechtliches',
       type: 'Typ',
       source: 'Quelle',
@@ -246,6 +248,8 @@ const I18N = {
     },
     detail: {
       eyebrowEvent: 'Event detail',
+      eyebrowGroup: 'Multiple reports',
+      groupCount: '{count} reports at this location',
       eyebrowLegal: 'Legal',
       type: 'Type',
       source: 'Source',
@@ -1140,7 +1144,13 @@ function wireMapInteractions() {
       return;
     }
 
-    selectEvent(Number(feature.properties.id), { flyTo: false, openSidebar: false });
+    const [lon, lat] = feature.geometry.coordinates;
+    const colocated = state.events.filter((e) => e.lat === lat && e.lon === lon);
+    if (colocated.length > 1) {
+      openGroupDetail(colocated);
+    } else {
+      selectEvent(Number(feature.properties.id), { flyTo: false, openSidebar: false });
+    }
   });
 
   for (const layerId of ['event-clusters', 'event-points']) {
@@ -1730,6 +1740,40 @@ function openDetailPanel(markup) {
   `;
 
   document.getElementById('detail-close')?.addEventListener('click', clearSelection);
+}
+
+function openGroupDetail(events) {
+  state.selectedEventId = null;
+  state.selectedEvent = null;
+  state.activeLegalKind = null;
+  setSelectedFeature(events[0]);
+  renderEventList();
+
+  openDetailPanel(`
+    <div class="detail-panel__inner">
+      <div class="detail-panel__header">
+        <div class="detail-panel__heading">
+          <p class="eyebrow">${t('detail.eyebrowGroup')}</p>
+          <h2>${t('detail.groupCount', { count: events.length })}</h2>
+        </div>
+        <button id="detail-close" class="icon-button icon-button--compact detail-panel__close" type="button" aria-label="${t('ui.closeDetail')}">×</button>
+      </div>
+      <div class="group-event-list">
+        ${events.map((ev) => `
+          <button class="group-event-item" data-id="${ev.id}" type="button">
+            <span class="event-card__type">${formatType(ev.type)} · ${escapeHtml(ev.source.toUpperCase())}</span>
+            <span class="group-event-item__title">${escapeHtml(ev.title)}</span>
+            <span class="event-card__meta">${formatAbsolute(ev.timestamp)} · ${Math.round(ev.score * 100)} %</span>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `);
+
+  for (const ev of events) {
+    document.querySelector(`.group-event-item[data-id="${ev.id}"]`)
+      ?.addEventListener('click', () => selectEvent(ev.id, { flyTo: false, openSidebar: false }));
+  }
 }
 
 function reconcileSourceFilters() {

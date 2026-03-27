@@ -697,6 +697,35 @@ a {
   font-size: 0.62rem;
 }
 
+.group-event-list {
+  display: grid;
+  gap: 6px;
+}
+
+.group-event-item {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 9px 11px;
+  text-align: left;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.02);
+  color: inherit;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.group-event-item:hover {
+  border-color: rgba(111, 166, 255, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.group-event-item__title {
+  display: block;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
 .detail-backdrop {
   position: fixed;
   inset: 0;
