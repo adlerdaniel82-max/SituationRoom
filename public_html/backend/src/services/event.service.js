@@ -177,7 +177,8 @@ function toGeoJson(events = []) {
         description: getEventDescription(event),
         magnitude: event.magnitude,
         affectedPopulation: event.affectedPopulation,
-        url: event.url
+        url: event.url,
+        contentLanguage: event.data?.content_language || null
       }
     }))
   };

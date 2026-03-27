@@ -2044,7 +2044,8 @@ function normalizeGeoJsonFeature(feature) {
     magnitude: properties.magnitude,
     url: properties.url,
     description: properties.description,
-    affectedPopulation: properties.affectedPopulation
+    affectedPopulation: properties.affectedPopulation,
+    contentLanguage: properties.contentLanguage || null
   });
 }
 
@@ -2258,6 +2259,10 @@ function buildTranslatedSourceUrl(event) {
 function getPrimaryEventLanguageCode(event) {
   const data = event?.data || {};
   const candidates = [];
+
+  if (typeof event?.contentLanguage === 'string' && event.contentLanguage.trim()) {
+    candidates.push(event.contentLanguage.trim());
+  }
 
   if (typeof data.content_language === 'string' && data.content_language.trim()) {
     candidates.push(data.content_language.trim());
