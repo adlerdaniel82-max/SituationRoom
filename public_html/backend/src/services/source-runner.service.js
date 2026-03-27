@@ -42,7 +42,8 @@ async function runSource(sourceId) {
     await sourceRepository.updateRunState(sourceId, new Date(), 'running');
     await broadcastSourceStatus(sourceId);
     const result = await importer.run();
-    await sourceRepository.updateRunState(sourceId, new Date(), 'ok');
+    const completedStatus = result?.partialFailure || 'ok';
+    await sourceRepository.updateRunState(sourceId, new Date(), completedStatus);
     await broadcastSourceStatus(sourceId);
 
     runningJobs.delete(sourceId);

@@ -88,6 +88,11 @@ async function fetchDocAttention(query, options) {
           params
         });
       } catch (retryError) {
+        // GDELT rate-limit fallback: on a second 429 within the same run, reuse the last stored
+        // raw snapshot from raw_events instead of failing the job entirely. This avoids gaps in
+        // the attention layer on busy GDELT API days. The fallback is only used if a snapshot
+        // exists and is within cacheMaxAgeHours (configured via env). The result carries
+        // fromCache=true so the importer skips re-storing the raw payload.
         if (retryError.response?.status === 429) {
           const cached = await rawRepository.getLatest('gdelt');
           const createdAt = cached?.created_at || cached?.createdAt || null;

@@ -44,9 +44,15 @@ function createRssNewsImporter(sourceConfig) {
         }
       }
 
+      const totalFeeds = Object.keys(sourceConfig.feeds).length;
+
       if (successfulFeeds === 0) {
         throw new Error(`${sourceConfig.displayName} feeds unavailable`);
       }
+
+      const partialFailure = successfulFeeds < totalFeeds * 0.5
+        ? `warning: ${totalFeeds - successfulFeeds}/${totalFeeds} feeds failed`
+        : null;
 
       let imported = 0;
       let duplicates = 0;
@@ -70,8 +76,11 @@ function createRssNewsImporter(sourceConfig) {
       skippedDuplicateFeed = allItems.reduce((sum, batch) => sum + (batch.skippedDuplicateFeed || 0), 0);
       const total = allItems.reduce((sum, batch) => sum + (batch.total || 0), 0);
 
+      if (partialFailure) {
+        logger.warn(`${sourceConfig.displayName} ${partialFailure}`);
+      }
       logger.info(`${sourceConfig.displayName} importer completed: ${imported} imported, ${duplicates} duplicates, ${skippedOld} skipped_old, ${skippedNoKeyword} skipped_no_keyword, ${skippedNoLocation} skipped_no_location, ${skippedDuplicateFeed} skipped_duplicate_feed`);
-      return { imported, duplicates, skippedOld, skippedNoKeyword, skippedNoLocation, skippedDuplicateFeed, total };
+      return { imported, duplicates, skippedOld, skippedNoKeyword, skippedNoLocation, skippedDuplicateFeed, total, partialFailure };
     }
   };
 }
