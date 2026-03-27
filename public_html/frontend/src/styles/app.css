@@ -56,10 +56,11 @@ a {
 }
 
 .app-shell {
+  height: 100vh;
   min-height: 100vh;
-  padding: 28px;
+  padding: 10px 12px 6px;
   display: grid;
-  grid-template-rows: auto auto;
+  grid-template-rows: 1fr auto auto;
   gap: 2px;
   overflow: hidden;
 }
@@ -69,7 +70,7 @@ a {
   grid-template-columns: minmax(300px, 340px) minmax(640px, 1fr) minmax(280px, 320px);
   gap: 2px;
   align-items: stretch;
-  height: clamp(500px, 58vh, 680px);
+  min-height: 0;
 }
 
 .panel,
@@ -88,8 +89,8 @@ a {
   max-height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 18px;
+  gap: 10px;
+  padding: 14px;
   overflow-y: auto;
 }
 
@@ -126,7 +127,7 @@ a {
 
 .sidebar-header {
   align-items: flex-start;
-  padding-bottom: 14px;
+  padding-bottom: 8px;
   border-bottom: 1px solid rgba(111, 166, 255, 0.14);
 }
 
@@ -179,7 +180,7 @@ a {
 }
 
 .brand-mark {
-  margin: 0 0 10px;
+  margin: 0 0 4px;
   font-size: 0.7rem;
   font-weight: 700;
   color: #8ab4ff;
@@ -192,15 +193,15 @@ a {
 }
 
 .sidebar-header h1 {
-  font-size: clamp(2rem, 2.8vw, 2.9rem);
+  font-size: clamp(1.1rem, 1.6vw, 1.6rem);
   line-height: 0.96;
   letter-spacing: -0.05em;
 }
 
 .sidebar-intro {
-  margin: 12px 0 0;
+  margin: 6px 0 0;
   color: #c0cfdd;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   line-height: 1.55;
 }
 
@@ -429,7 +430,7 @@ a {
 
 .center-stage {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
   min-height: 0;
   height: 100%;
@@ -439,26 +440,25 @@ a {
   width: 100%;
   height: 100%;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
 }
 
 .monitor-frame {
-  width: min(100%, 940px);
+  width: 100%;
   height: 100%;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
-  align-content: center;
-  justify-items: center;
-  gap: 14px;
+  align-content: stretch;
+  justify-items: stretch;
+  gap: 0;
 }
 
 .monitor-screen {
   position: relative;
   width: 100%;
-  max-height: 540px;
-  aspect-ratio: 16 / 10;
-  padding: 16px;
+  height: 100%;
+  padding: 8px;
   border: 1px solid rgba(161, 181, 203, 0.28);
   border-radius: var(--radius-lg);
   background:
@@ -481,6 +481,7 @@ a {
   width: 34%;
   min-width: 180px;
   height: 16px;
+  margin: 4px auto 0;
   border: 1px solid rgba(161, 181, 203, 0.22);
   border-radius: var(--radius-sm);
   background: linear-gradient(180deg, rgba(17, 24, 33, 0.95), rgba(7, 10, 15, 0.98));
@@ -489,7 +490,7 @@ a {
 
 .map-canvas {
   position: absolute;
-  inset: 16px;
+  inset: 8px;
   border: 1px solid rgba(111, 166, 255, 0.16);
   background: #07131d;
 }
@@ -497,10 +498,10 @@ a {
 .sources-panel {
   height: 100%;
   max-height: 100%;
-  padding: 18px;
+  padding: 12px 14px;
   overflow: auto;
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
 .sources-panel__section {
@@ -570,8 +571,8 @@ a {
 
 .news-panel,
 .markets-panel {
-  padding: 18px;
-  height: 252px;
+  padding: 10px 14px;
+  height: 185px;
 }
 
 .event-list {
@@ -579,14 +580,14 @@ a {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   min-height: 0;
-  max-height: 172px;
+  max-height: 115px;
   overflow: auto;
 }
 
 .event-card {
   width: 100%;
-  min-height: 82px;
-  padding: 9px 10px;
+  min-height: 68px;
+  padding: 7px 8px;
   text-align: left;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-md);
@@ -637,7 +638,7 @@ a {
 .markets-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  max-height: 172px;
+  max-height: 115px;
   overflow: auto;
   align-content: start;
 }
@@ -835,7 +836,7 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 8px 0 0;
+  padding: 4px 0 0;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--muted);
 }
@@ -846,7 +847,7 @@ a {
 }
 
 .app-footer__brand span {
-  font-size: 0.84rem;
+  font-size: 0.78rem;
   color: var(--text);
 }
 
@@ -902,7 +903,10 @@ a {
 
 @media (max-width: 1180px) {
   .app-shell {
+    height: auto;
+    overflow: auto;
     padding: 20px;
+    grid-template-rows: auto;
   }
 
   .deck-grid {
