@@ -9,19 +9,28 @@ let typeRules = [];
 let rulesLoadedAt = 0;
 const RULES_TTL_MS = 15 * 60 * 1000;
 
-// Aircraft types that are unambiguously military regardless of other signals
+// Aircraft types that are unambiguously military regardless of other signals.
+// IMPORTANT: use codes that are NOT prefixes of common civilian ICAO type codes.
+// E7 removed – it prefix-matches Embraer E175 (E75L/E75S); E-7 Wedgetail uses a 737 base type.
+// C5 and C17 kept but guarded by CLEARLY_CIVILIAN_TYPES check in Stage 3.
 const ALWAYS_MILITARY_TYPES = new Set([
   'C17', 'A400', 'KC135', 'KC46', 'KC130', 'MRTT',
-  'E3', 'E7', 'RC135', 'U2', 'RQ4', 'MQ9', 'EP3', 'E8',
+  'E3', 'RC135', 'U2', 'RQ4', 'MQ9', 'EP3', 'E8',
   'P8', 'V22', 'C5'
 ]);
 
-// Civilian aircraft type prefixes for the negative penalty
+// Civilian aircraft type codes that must never trigger military scoring.
+// Also guards against ambiguous ALWAYS_MILITARY_TYPES prefix matches:
+//   C17 would match C172 (Cessna 172) → C172 added here
+//   C5  would match C510/C525/C550 (Cessna Citations) → added here
+//   E75L/E75S are Embraer E175 variants used by regional airlines (KLM Cityhopper etc.)
 const CLEARLY_CIVILIAN_TYPES = new Set([
   'B737', 'B738', 'B739', 'B73Q', 'B77W', 'B77L', 'B788', 'B789', 'B78X',
   'A318', 'A319', 'A320', 'A321', 'A332', 'A333', 'A338', 'A339', 'A35K', 'A359', 'A380',
-  'E170', 'E175', 'E190', 'E195', 'CRJ2', 'CRJ7', 'CRJ9', 'AT72', 'AT76',
-  'DH8D', 'E145', 'B190', 'SF34'
+  'E170', 'E175', 'E75L', 'E75S', 'E190', 'E195',
+  'CRJ2', 'CRJ7', 'CRJ9', 'AT72', 'AT76', 'DH8D', 'E145', 'B190', 'SF34',
+  // Cessna singles/Citations – guard against C17/C5 prefix false positives
+  'C172', 'C182', 'C208', 'C510', 'C525', 'C550', 'C560', 'C680', 'C700'
 ]);
 
 // Standard airline callsign regex: 3 uppercase letters + 1-4 digits + optional suffix
@@ -112,8 +121,11 @@ async function classifyAircraft(aircraft, metadata) {
   const typeCode = String(meta.aircraft_type || '').toUpperCase();
 
   if (typeCode) {
-    // Check always-military list first
-    const alwaysMilitaryMatch = [...ALWAYS_MILITARY_TYPES].find(
+    // Civilian types are never matched as military, even if their prefix would overlap
+    // with an ALWAYS_MILITARY_TYPES entry (e.g. C172 vs C17, C525 vs C5, E75L vs E7).
+    const isClearlyCivilian = CLEARLY_CIVILIAN_TYPES.has(typeCode);
+
+    const alwaysMilitaryMatch = !isClearlyCivilian && [...ALWAYS_MILITARY_TYPES].find(
       (code) => typeCode.startsWith(code)
     );
     if (alwaysMilitaryMatch) {
@@ -295,7 +307,7 @@ function resolveCategory(registryCategory, categoryScoreAccum, typeCode, reasons
 function resolveTypeCategory(typeCode) {
   const code = typeCode.toUpperCase();
   if (['KC135', 'KC46', 'KC130', 'MRTT', 'VC10'].some((t) => code.startsWith(t))) return 'tanker';
-  if (['E3', 'E7', 'RC135', 'U2', 'RQ4', 'MQ9', 'EP3', 'E8', 'P8', 'MC12'].some((t) => code.startsWith(t))) return 'surveillance';
+  if (['E3', 'RC135', 'U2', 'RQ4', 'MQ9', 'EP3', 'E8', 'P8', 'MC12'].some((t) => code.startsWith(t))) return 'surveillance';
   if (['C17', 'C130', 'A400', 'C27', 'C295', 'IL76', 'AN12', 'AN26', 'AN32', 'AN124', 'C5', 'C2', 'V22'].some((t) => code.startsWith(t))) return 'military_transport';
   return 'military';
 }
