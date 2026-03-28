@@ -6,6 +6,7 @@ const I18N = {
   de: {
     meta: {
       title: 'Situation Room',
+      brandMark: 'World Incident Map',
       description: 'Globale Lagekarte mit Live-Ereignissen, Clustern, Filtern und Quellenstatus.'
     },
     ui: {
@@ -231,6 +232,7 @@ const I18N = {
   en: {
     meta: {
       title: 'Situation Room',
+      brandMark: 'World Incident Map',
       description: 'Global situation map with live events, clusters, filters, and source status.'
     },
     ui: {
@@ -891,7 +893,7 @@ function renderStaticText() {
     nodes.metaDescription.setAttribute('content', t('meta.description'));
   }
 
-  nodes.brandMark.textContent = t('meta.title');
+  nodes.brandMark.textContent = t('meta.brandMark');
   nodes.appTitle.textContent = t('meta.title');
   nodes.sidebarIntro.textContent = t('ui.intro');
   nodes.statsSectionTitle.textContent = t('ui.statsSection');
