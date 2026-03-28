@@ -46,7 +46,16 @@ const I18N = {
       reportIndustrial: 'Als Industrieanlage markieren',
       layersSection: 'Karten-Layer',
       heatmapIncidents: 'Vorfälle-Heatmap',
-      heatmapAttention: 'Aufmerksamkeits-Heatmap'
+      heatmapAttention: 'Aufmerksamkeits-Heatmap',
+      timeRange: 'Zeitraum'
+    },
+    timeRangeOptions: {
+      '24h': 'Letzte 24 Stunden',
+      '3d': 'Letzte 3 Tage',
+      '7d': 'Letzte 7 Tage',
+      '14d': 'Letzte 14 Tage',
+      '30d': 'Letzter Monat',
+      '365d': 'Letztes Jahr'
     },
     status: {
       initializing: 'Initialisiere …',
@@ -224,7 +233,16 @@ const I18N = {
       reportIndustrial: 'Mark as industrial site',
       layersSection: 'Map Layers',
       heatmapIncidents: 'Incident Heatmap',
-      heatmapAttention: 'Attention Heatmap'
+      heatmapAttention: 'Attention Heatmap',
+      timeRange: 'Time range'
+    },
+    timeRangeOptions: {
+      '24h': 'Last 24 hours',
+      '3d': 'Last 3 days',
+      '7d': 'Last 7 days',
+      '14d': 'Last 14 days',
+      '30d': 'Last month',
+      '365d': 'Last year'
     },
     status: {
       initializing: 'Initializing …',
@@ -453,6 +471,14 @@ const SOURCE_MARKER_STYLES = {
   default: { shape: 'circle', fill: '#7b8794', stroke: '#f3f4f6' }
 };
 const HIDDEN_SOURCE_IDS = new Set(['acled', 'ap', 'reuters']);
+const TIME_RANGE_OPTIONS = [
+  { value: '24h',  hours: 24 },
+  { value: '3d',   hours: 72 },
+  { value: '7d',   hours: 168 },
+  { value: '14d',  hours: 336 },
+  { value: '30d',  hours: 720 },
+  { value: '365d', hours: 8760 }
+];
 const FILTER_STORAGE_KEY = 'situation-room.filters.v2';
 const LEGACY_FILTER_STORAGE_KEY = 'situation-room.filters.v1';
 const HEATMAP_STORAGE_KEY = 'situation-room.heatmap.v1';
@@ -484,7 +510,10 @@ const state = {
   filters: {
     types: new Set(filterPersistedValues(persistedFilters?.types, TYPE_OPTIONS.map((entry) => entry.value)) || TYPE_OPTIONS.map((entry) => entry.value)),
     sources: new Set(filterPersistedValues(persistedFilters?.sources, SOURCE_OPTIONS.map((entry) => entry.value)) || DEFAULT_SOURCE_FILTERS),
-    minScore: clampMinScore(persistedFilters?.minScore)
+    minScore: clampMinScore(persistedFilters?.minScore),
+    timeRange: TIME_RANGE_OPTIONS.some((o) => o.value === persistedFilters?.timeRange)
+      ? persistedFilters.timeRange
+      : '24h'
   },
   hasStoredSourceFilters: Array.isArray(persistedFilters?.sources),
   selectedEventId: null,
@@ -543,7 +572,8 @@ const nodes = {
   heatmapIncidentsToggle: document.getElementById('heatmap-incidents-toggle'),
   heatmapIncidentsLabel: document.getElementById('heatmap-incidents-label'),
   heatmapAttentionToggle: document.getElementById('heatmap-attention-toggle'),
-  heatmapAttentionLabel: document.getElementById('heatmap-attention-label')
+  heatmapAttentionLabel: document.getElementById('heatmap-attention-label'),
+  timeRangeSelect: document.getElementById('time-range-select')
 };
 
 document.addEventListener('DOMContentLoaded', init);
@@ -589,6 +619,14 @@ function bindUi() {
   });
 
   syncSourcesPanel();
+
+  if (nodes.timeRangeSelect) {
+    nodes.timeRangeSelect.addEventListener('change', () => {
+      state.filters.timeRange = nodes.timeRangeSelect.value;
+      saveStoredFilters();
+      scheduleViewportRefresh(0);
+    });
+  }
 
   if (nodes.heatmapIncidentsToggle) {
     nodes.heatmapIncidentsToggle.checked = state.heatmap.incidents;
@@ -775,6 +813,16 @@ function renderStaticText() {
   if (!state.map) {
     nodes.statusBadge.textContent = t('status.initializing');
   }
+
+  renderTimeRangeSelect();
+}
+
+function renderTimeRangeSelect() {
+  if (!nodes.timeRangeSelect) return;
+  const current = state.filters.timeRange;
+  nodes.timeRangeSelect.innerHTML = TIME_RANGE_OPTIONS
+    .map((opt) => `<option value="${opt.value}"${opt.value === current ? ' selected' : ''}>${t('timeRangeOptions.' + opt.value)}</option>`)
+    .join('');
 }
 
 async function setLanguage(language) {
@@ -1297,6 +1345,11 @@ function buildEventQuery() {
   params.set('limit', String(getViewportLimit()));
   params.set('minScore', String(state.filters.minScore));
 
+  const timeRangeOpt = TIME_RANGE_OPTIONS.find((o) => o.value === state.filters.timeRange);
+  if (timeRangeOpt) {
+    params.set('startDate', new Date(Date.now() - timeRangeOpt.hours * 3600000).toISOString());
+  }
+
   if (state.filters.types.size === 0) {
     params.set('type', EMPTY_FILTER_SENTINEL);
   } else if (state.filters.types.size < TYPE_OPTIONS.length) {
@@ -1488,9 +1541,11 @@ function resetFilters() {
   state.filters.types = new Set(TYPE_OPTIONS.map((entry) => entry.value));
   state.filters.sources = getDefaultSourceFilters();
   state.filters.minScore = 0;
+  state.filters.timeRange = '24h';
   state.hasStoredSourceFilters = false;
   saveStoredFilters();
   renderFilterGroups();
+  renderTimeRangeSelect();
   scheduleViewportRefresh(0);
 }
 
@@ -1838,7 +1893,8 @@ function saveStoredFilters() {
     window.localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify({
       types: Array.from(state.filters.types),
       sources: Array.from(state.filters.sources),
-      minScore: state.filters.minScore
+      minScore: state.filters.minScore,
+      timeRange: state.filters.timeRange
     }));
   } catch {
     // Ignore storage errors in privacy mode / restricted browsers.

@@ -289,6 +289,36 @@ a {
   margin-top: auto;
 }
 
+.time-range-row {
+  display: flex;
+}
+
+.time-range-select {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238fa3bb'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+
+.time-range-select:hover {
+  border-color: var(--line-strong);
+}
+
+.time-range-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .status-badge {
   display: inline-flex;
   align-items: center;
