@@ -844,6 +844,59 @@ a {
   line-height: 1.58;
 }
 
+/* Aviation classification block */
+.gov-classification {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(111, 166, 255, 0.18);
+  background: rgba(111, 166, 255, 0.06);
+}
+
+.gov-classification--confirmed {
+  border-color: rgba(79, 158, 132, 0.38);
+  background: rgba(79, 158, 132, 0.08);
+}
+
+.gov-classification--probable {
+  border-color: rgba(201, 137, 69, 0.38);
+  background: rgba(201, 137, 69, 0.07);
+}
+
+.gov-classification--watchlist {
+  border-color: rgba(210, 179, 92, 0.30);
+  background: rgba(210, 179, 92, 0.06);
+}
+
+.gov-classification__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.gov-classification__label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.gov-classification__badge {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.gov-classification--confirmed .gov-classification__badge { color: #9de0c9; }
+.gov-classification--probable  .gov-classification__badge { color: #e5b67a; }
+.gov-classification--watchlist .gov-classification__badge { color: #ead692; }
+
+.detail-grid--compact {
+  gap: 4px;
+  margin-top: 4px;
+}
+
 .detail-note {
   padding: 10px 11px;
   border: 1px solid rgba(111, 166, 255, 0.22);

@@ -178,7 +178,13 @@ function toGeoJson(events = []) {
         magnitude: event.magnitude,
         affectedPopulation: event.affectedPopulation,
         url: event.url,
-        contentLanguage: event.data?.content_language || null
+        contentLanguage: event.data?.content_language || null,
+        govCategory:    event.data?.gov_category    || null,
+        govScore:       event.data?.gov_score        ?? null,
+        govConfidence:  event.data?.gov_confidence  || null,
+        govOperator:    event.data?.gov_operator    || null,
+        govType:        event.data?.gov_type        || null,
+        govRegistration: event.data?.gov_registration || null
       }
     }))
   };

@@ -94,7 +94,30 @@ const I18N = {
       industrialStored: 'Markierung gespeichert. {count}/{threshold} Meldungen erreicht.',
       industrialAlreadyStored: 'Dieser Browser hat den Treffer bereits markiert. Aktuell {count}/{threshold}.',
       industrialHidden: 'Der Treffer ist jetzt als Industrieanlage ausgeblendet.',
-      industrialFailed: 'Markierung konnte nicht gespeichert werden.'
+      industrialFailed: 'Markierung konnte nicht gespeichert werden.',
+      govClassification: 'Klassifizierung',
+      govScore: 'Gov-Score',
+      govOperator: 'Betreiber',
+      govType: 'Flugzeugtyp',
+      govRegistration: 'Kennung'
+    },
+    govCategories: {
+      government:          'Regierungsflugzeug',
+      military_transport:  'Militärtransporter',
+      military:            'Militärisch',
+      tanker:              'Tankflugzeug',
+      surveillance:        'Aufklärungsflugzeug',
+      police:              'Polizei / Behörde',
+      coast_guard:         'Küstenwache',
+      sar:                 'SAR / Rettung',
+      vip:                 'VIP / Staatsflug',
+      unknown_but_interesting: 'Unbekannt / Interessant'
+    },
+    govConfidence: {
+      confirmed:  'Bestätigt',
+      probable:   'Wahrscheinlich',
+      watchlist:  'Beobachtet',
+      normal:     'Unklassifiziert'
     },
     eventMeta: {
       justNow: 'gerade eben',
@@ -281,7 +304,30 @@ const I18N = {
       industrialStored: 'Report saved. {count}/{threshold} reports reached.',
       industrialAlreadyStored: 'This browser already reported this detection. Currently {count}/{threshold}.',
       industrialHidden: 'This detection is now hidden as an industrial site.',
-      industrialFailed: 'The report could not be saved.'
+      industrialFailed: 'The report could not be saved.',
+      govClassification: 'Classification',
+      govScore: 'Gov score',
+      govOperator: 'Operator',
+      govType: 'Aircraft type',
+      govRegistration: 'Registration'
+    },
+    govCategories: {
+      government:          'Government Aircraft',
+      military_transport:  'Military Transport',
+      military:            'Military',
+      tanker:              'Military Tanker',
+      surveillance:        'Surveillance Aircraft',
+      police:              'Police / Law Enforcement',
+      coast_guard:         'Coast Guard',
+      sar:                 'SAR / Rescue',
+      vip:                 'VIP / State Transport',
+      unknown_but_interesting: 'Unknown / Interesting'
+    },
+    govConfidence: {
+      confirmed:  'Confirmed',
+      probable:   'Probable',
+      watchlist:  'Watchlist',
+      normal:     'Unclassified'
     },
     eventMeta: {
       justNow: 'just now',
@@ -1954,6 +2000,7 @@ function renderDetail(event) {
         ${event.magnitude !== null ? renderDetailField(t('detail.magnitude'), String(event.magnitude)) : ''}
       </div>
       ${event.description ? `<p class="detail-copy">${escapeHtml(event.description)}</p>` : ''}
+      ${renderAviationClassification(event)}
       ${canReportIndustrialHeat ? `
         <div id="industrial-report-note" class="detail-note">
           ${t('detail.industrialHint')}
@@ -1989,6 +2036,32 @@ function renderDetailField(label, value, optional = false) {
     <div class="detail-field">
       <span>${label}</span>
       <strong>${value}</strong>
+    </div>
+  `;
+}
+
+function renderAviationClassification(event) {
+  if (event.source !== 'opensky' || !event.govCategory) {
+    return '';
+  }
+
+  const categoryLabel = t('govCategories.' + event.govCategory) || event.govCategory;
+  const confidenceLabel = t('govConfidence.' + (event.govConfidence || 'normal')) || event.govConfidence;
+  const scorePct = event.govScore != null ? `${Math.round(Number(event.govScore) * 100)}%` : '';
+
+  const metaRows = [
+    event.govOperator    ? renderDetailField(t('detail.govOperator'),    escapeHtml(event.govOperator))    : '',
+    event.govType        ? renderDetailField(t('detail.govType'),        escapeHtml(event.govType))        : '',
+    event.govRegistration ? renderDetailField(t('detail.govRegistration'), escapeHtml(event.govRegistration)) : ''
+  ].filter(Boolean).join('');
+
+  return `
+    <div class="gov-classification gov-classification--${escapeHtml(event.govConfidence || 'normal')}">
+      <div class="gov-classification__header">
+        <span class="gov-classification__label">${escapeHtml(categoryLabel)}</span>
+        <span class="gov-classification__badge">${escapeHtml(confidenceLabel)}${scorePct ? ` · ${scorePct}` : ''}</span>
+      </div>
+      ${metaRows ? `<div class="detail-grid detail-grid--compact">${metaRows}</div>` : ''}
     </div>
   `;
 }
@@ -2341,7 +2414,13 @@ function normalizeGeoJsonFeature(feature) {
     url: properties.url,
     description: properties.description,
     affectedPopulation: properties.affectedPopulation,
-    contentLanguage: properties.contentLanguage || null
+    contentLanguage: properties.contentLanguage || null,
+    govCategory:    properties.govCategory    || null,
+    govScore:       properties.govScore        ?? null,
+    govConfidence:  properties.govConfidence  || null,
+    govOperator:    properties.govOperator    || null,
+    govType:        properties.govType        || null,
+    govRegistration: properties.govRegistration || null
   });
 }
 
