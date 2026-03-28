@@ -54,7 +54,21 @@ const GENERIC_LOCATION_TERMS = new Set([
   'AP', 'BBC', 'News', 'World', 'Business', 'Politics', 'Health', 'Science', 'Technology',
   'Democrats', 'Republicans', 'Europe', 'Asia', 'Africa', 'Middle East', 'West', 'East',
   'North', 'South', 'House', 'Senate', 'Court', 'Agency', 'Police', 'Army', 'Navy',
-  'Reuters', 'Breakingviews', 'Top News', 'Congressman', 'Newsnight', 'Siege', 'Warmest Day'
+  'Reuters', 'Breakingviews', 'Top News', 'Congressman', 'Newsnight', 'Siege', 'Warmest Day',
+  // Common capitalized non-location words in news headlines
+  'Attack', 'Attacks', 'Strike', 'Strikes', 'Airstrike', 'Airstrikes',
+  'Kills', 'Killed', 'Dead', 'Wounded', 'Injured', 'Missing',
+  'School', 'Hospital', 'University', 'Ministry', 'Embassy',
+  'Government', 'Officials', 'President', 'Minister', 'Prime Minister',
+  'Forces', 'Troops', 'Military', 'Soldiers', 'Militants', 'Rebels',
+  'War', 'Crisis', 'Conflict', 'Violence', 'Protest', 'Protests',
+  'Report', 'Reports', 'Says', 'Warns', 'Threatens', 'Launches',
+  'Explosion', 'Bomb', 'Missile', 'Drone', 'Rockets',
+  'Humanitarian', 'Refugee', 'Refugees', 'Aid', 'Relief',
+  'Update', 'Breaking', 'Latest', 'Live', 'Alert',
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'Oktober', 'November', 'December',
+  'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
 ]);
 
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
