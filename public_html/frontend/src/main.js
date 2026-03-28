@@ -47,7 +47,8 @@ const I18N = {
       layersSection: 'Karten-Layer',
       heatmapIncidents: 'Vorfälle-Heatmap',
       heatmapAttention: 'Aufmerksamkeits-Heatmap',
-      timeRange: 'Zeitraum'
+      timeRange: 'Zeitraum',
+      opskyCatSection: 'OpenSky Kategorien'
     },
     timeRangeOptions: {
       '24h': 'Letzte 24 Stunden',
@@ -141,6 +142,20 @@ const I18N = {
       error: 'Fehler',
       disabled: 'Deaktiviert',
       ready: 'Bereit'
+    },
+    oskyCat: {
+      military_transport: 'Militärtransporter',
+      tanker:             'Tankflugzeug',
+      surveillance:       'Aufklärung/Überwachung',
+      military:           'Militär',
+      government:         'Regierungsmaschine',
+      vip:                'VIP/Staatsflug',
+      police:             'Polizei/Strafverfolgung',
+      coast_guard:        'Küstenwache',
+      sar:                'SAR/Rettung',
+      uav:                'Drohne (UAV)',
+      emergency:          'Notfallfahrzeug (Boden)',
+      unknown:            'Verdächtig/unklar'
     },
     markets: {
       noTime: 'keine Zeit',
@@ -257,7 +272,8 @@ const I18N = {
       layersSection: 'Map Layers',
       heatmapIncidents: 'Incident Heatmap',
       heatmapAttention: 'Attention Heatmap',
-      timeRange: 'Time range'
+      timeRange: 'Time range',
+      opskyCatSection: 'OpenSky Categories'
     },
     timeRangeOptions: {
       '24h': 'Last 24 hours',
@@ -351,6 +367,20 @@ const I18N = {
       error: 'Error',
       disabled: 'Disabled',
       ready: 'Ready'
+    },
+    oskyCat: {
+      military_transport: 'Military Transport',
+      tanker:             'Tanker Aircraft',
+      surveillance:       'Surveillance/ISR',
+      military:           'Military Aircraft',
+      government:         'Government Aircraft',
+      vip:                'VIP/State Transport',
+      police:             'Police/Law Enforcement',
+      coast_guard:        'Coast Guard',
+      sar:                'SAR/Rescue',
+      uav:                'UAV/Drone',
+      emergency:          'Surface Emergency Vehicle',
+      unknown:            'Suspicious/Unknown'
     },
     markets: {
       noTime: 'no time',
@@ -529,6 +559,27 @@ const FILTER_STORAGE_KEY = 'situation-room.filters.v2';
 const LEGACY_FILTER_STORAGE_KEY = 'situation-room.filters.v1';
 const HEATMAP_STORAGE_KEY = 'situation-room.heatmap.v1';
 const CLIENT_ID_STORAGE_KEY = 'situation-room.client-id';
+
+const OPENSKY_CATEGORY_OPTIONS = [
+  { value: 'military_transport',             labelKey: 'oskyCat.military_transport' },
+  { value: 'tanker',                         labelKey: 'oskyCat.tanker' },
+  { value: 'surveillance',                   labelKey: 'oskyCat.surveillance' },
+  { value: 'military',                       labelKey: 'oskyCat.military' },
+  { value: 'government',                     labelKey: 'oskyCat.government' },
+  { value: 'vip',                            labelKey: 'oskyCat.vip' },
+  { value: 'police',                         labelKey: 'oskyCat.police' },
+  { value: 'coast_guard',                    labelKey: 'oskyCat.coast_guard' },
+  { value: 'sar',                            labelKey: 'oskyCat.sar' },
+  { value: 'unmanned_aerial_vehicle',        labelKey: 'oskyCat.uav' },
+  { value: 'surface_emergency_vehicle',      labelKey: 'oskyCat.emergency' },
+  { value: 'unknown_but_interesting',        labelKey: 'oskyCat.unknown' }
+];
+// unknown_but_interesting is off by default (too noisy for standard view)
+const DEFAULT_OPENSKY_CATEGORIES = new Set([
+  'military_transport', 'tanker', 'surveillance', 'military',
+  'government', 'vip', 'police', 'coast_guard', 'sar',
+  'unmanned_aerial_vehicle', 'surface_emergency_vehicle'
+]);
 const EMPTY_FILTER_SENTINEL = '__none__';
 const EVENT_RESPONSE_FORMAT = 'geojson';
 const DEFAULT_SOURCE_FILTERS = new Set(
@@ -559,7 +610,13 @@ const state = {
     minScore: clampMinScore(persistedFilters?.minScore),
     timeRange: TIME_RANGE_OPTIONS.some((o) => o.value === persistedFilters?.timeRange)
       ? persistedFilters.timeRange
-      : '24h'
+      : '24h',
+    opskyCats: new Set(
+      filterPersistedValues(
+        persistedFilters?.opskyCats,
+        OPENSKY_CATEGORY_OPTIONS.map((e) => e.value)
+      ) ?? [...DEFAULT_OPENSKY_CATEGORIES]
+    )
   },
   hasStoredSourceFilters: Array.isArray(persistedFilters?.sources),
   selectedEventId: null,
@@ -619,7 +676,11 @@ const nodes = {
   heatmapIncidentsLabel: document.getElementById('heatmap-incidents-label'),
   heatmapAttentionToggle: document.getElementById('heatmap-attention-toggle'),
   heatmapAttentionLabel: document.getElementById('heatmap-attention-label'),
-  timeRangeSelect: document.getElementById('time-range-select')
+  timeRangeSelect: document.getElementById('time-range-select'),
+  opskySection: document.getElementById('opensky-section'),
+  opskySectionTitle: document.getElementById('opensky-section-title'),
+  opskyCollapseToggle: document.getElementById('opensky-collapse-toggle'),
+  opskyCategoryFilters: document.getElementById('opensky-category-filters')
 };
 
 document.addEventListener('DOMContentLoaded', init);
@@ -665,6 +726,14 @@ function bindUi() {
   });
 
   syncSourcesPanel();
+
+  if (nodes.opskyCollapseToggle) {
+    nodes.opskyCollapseToggle.addEventListener('click', () => {
+      const collapsed = nodes.opskySection.classList.toggle('sources-panel__section--collapsed');
+      nodes.opskyCollapseToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      nodes.opskyCollapseToggle.textContent = collapsed ? t('ui.show') : t('ui.hide');
+    });
+  }
 
   if (nodes.timeRangeSelect) {
     nodes.timeRangeSelect.addEventListener('change', () => {
@@ -849,6 +918,13 @@ function renderStaticText() {
   if (nodes.layersSectionTitle) {
     nodes.layersSectionTitle.textContent = t('ui.layersSection');
   }
+  if (nodes.opskySectionTitle) {
+    nodes.opskySectionTitle.textContent = t('ui.opskyCatSection');
+  }
+  if (nodes.opskyCollapseToggle) {
+    const collapsed = nodes.opskySection?.classList.contains('sources-panel__section--collapsed');
+    nodes.opskyCollapseToggle.textContent = collapsed ? t('ui.show') : t('ui.hide');
+  }
   if (nodes.heatmapIncidentsLabel) {
     nodes.heatmapIncidentsLabel.textContent = t('ui.heatmapIncidents');
   }
@@ -882,6 +958,7 @@ async function setLanguage(language) {
   syncSidebarToggle();
   syncSourcesPanel();
   renderFilterGroups();
+  renderOpskyCategoryFilter();
   renderSources();
   renderEventList();
   renderStats(state.latestStats);
@@ -1276,8 +1353,12 @@ async function loadViewportData() {
     }
 
     const normalized = normalizeEventPayload(payload);
-    state.events = normalized.events;
-    state.eventFeatureCollection = normalized.featureCollection;
+    const filteredEvents = applyOpskyCategoryFilter(normalized.events);
+    state.events = filteredEvents;
+    state.eventFeatureCollection = {
+      type: 'FeatureCollection',
+      features: applyColocatedOffsets(filteredEvents.map(eventToFeature))
+    };
     updateMapData();
     await loadImportantEvents();
     renderEventList();
@@ -1318,6 +1399,7 @@ async function loadSources() {
     saveStoredFilters();
     renderSources();
     renderFilterGroups();
+    renderOpskyCategoryFilter();
   } catch (error) {
     console.error('Failed to load sources:', error);
     nodes.sourcesList.innerHTML = `<div class="empty-state">${escapeHtml(t('ui.sourceStatusUnavailable'))}</div>`;
@@ -1779,6 +1861,33 @@ function syncSourcesPanel() {
   nodes.sourcesCollapseToggle.textContent = state.sourcesPanelOpen ? t('ui.hide') : t('ui.show');
 }
 
+function renderOpskyCategoryFilter() {
+  if (!nodes.opskyCategoryFilters) return;
+
+  nodes.opskyCategoryFilters.innerHTML = OPENSKY_CATEGORY_OPTIONS.map((option) => {
+    const checked = state.filters.opskyCats.has(option.value) ? 'checked' : '';
+    const label = t(option.labelKey);
+    return `
+      <label class="filter-option">
+        <input type="checkbox" data-osky-cat="${escapeHtml(option.value)}" ${checked}>
+        <span>${escapeHtml(label)}</span>
+      </label>`;
+  }).join('');
+
+  nodes.opskyCategoryFilters.querySelectorAll('input[data-osky-cat]').forEach((input) => {
+    input.addEventListener('change', () => {
+      const cat = input.dataset.oskyCat;
+      if (input.checked) {
+        state.filters.opskyCats.add(cat);
+      } else {
+        state.filters.opskyCats.delete(cat);
+      }
+      saveStoredFilters();
+      scheduleViewportRefresh(0);
+    });
+  });
+}
+
 function renderMarkets() {
   if (!Array.isArray(state.markets) || state.markets.length === 0) {
     nodes.marketsGrid.innerHTML = `<div class="empty-state">${t('ui.noMarkets')}</div>`;
@@ -1940,7 +2049,8 @@ function saveStoredFilters() {
       types: Array.from(state.filters.types),
       sources: Array.from(state.filters.sources),
       minScore: state.filters.minScore,
-      timeRange: state.filters.timeRange
+      timeRange: state.filters.timeRange,
+      opskyCats: Array.from(state.filters.opskyCats)
     }));
   } catch {
     // Ignore storage errors in privacy mode / restricted browsers.
@@ -1965,6 +2075,22 @@ function filterPersistedValues(values, allowed) {
 
   const allowedSet = new Set(allowed);
   return values.filter((value) => allowedSet.has(value));
+}
+
+function applyOpskyCategoryFilter(events) {
+  const enabled = state.filters.opskyCats;
+  if (enabled.size >= OPENSKY_CATEGORY_OPTIONS.length) {
+    return events; // all categories enabled – skip filtering
+  }
+  return events.filter((event) => {
+    if (event.source !== 'opensky') return true;
+    // Normalize any legacy ADS-B category codes to 'military'
+    const cat = event.govCategory
+      || (event.source === 'opensky' ? 'unknown_but_interesting' : null);
+    if (!cat) return true;
+    const normalized = cat.startsWith('military_size_') ? 'military' : cat;
+    return enabled.has(normalized);
+  });
 }
 
 function clampMinScore(value) {

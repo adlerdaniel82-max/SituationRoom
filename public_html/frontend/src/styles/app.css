@@ -542,7 +542,8 @@ a {
   height: auto;
 }
 
-.sources-panel__section--collapsed .sources-list {
+.sources-panel__section--collapsed .sources-list,
+.sources-panel__section--collapsed .filter-options {
   display: none;
 }
 

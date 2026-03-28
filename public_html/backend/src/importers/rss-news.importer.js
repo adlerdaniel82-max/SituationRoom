@@ -85,7 +85,7 @@ function createRssNewsImporter(sourceConfig) {
   };
 }
 
-async function parseRssFeed(xml, category, sourceConfig) {
+async function parseRssFeed(xml, category, sourceConfig, options = {}) {
   const items = matchAll(xml, /<item>([\s\S]*?)<\/item>/g).slice(0, Math.max(1, Number(sourceConfig.maxItems || 40)));
   const parsedItems = [];
   let skippedNoLocation = 0;
@@ -94,6 +94,7 @@ async function parseRssFeed(xml, category, sourceConfig) {
   let skippedDuplicateFeed = 0;
   const feedLanguage = extractFeedLanguage(xml) || sourceConfig.contentLanguage || 'en';
   const seenKeys = new Set();
+  const resolveLocation = typeof options.resolveLocation === 'function' ? options.resolveLocation : resolveNewsLocation;
 
   for (const itemXml of items) {
     const title = decodeEntities(cleanupText(getTag(itemXml, 'title')));
@@ -126,7 +127,11 @@ async function parseRssFeed(xml, category, sourceConfig) {
       continue;
     }
 
-    const location = await resolveNewsLocation(title, description);
+    const location = await resolveLocation(title, description, {
+      sourceId: sourceConfig.sourceId,
+      category,
+      eventType
+    });
     if (!location) {
       skippedNoLocation += 1;
       continue;
@@ -176,4 +181,4 @@ async function parseRssFeed(xml, category, sourceConfig) {
   };
 }
 
-module.exports = { createRssNewsImporter };
+module.exports = { createRssNewsImporter, parseRssFeed };

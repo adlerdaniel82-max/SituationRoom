@@ -22,18 +22,7 @@ async function run() {
     let duplicates = 0;
 
     for (const feature of features) {
-      const event = {
-        title: feature.properties.title,
-        type: 'earthquake',
-        source: 'usgs',
-        lat: feature.geometry.coordinates[1],
-        lon: feature.geometry.coordinates[0],
-        depth: feature.geometry.coordinates[2],
-        magnitude: feature.properties.mag,
-        timestamp: new Date(feature.properties.time),
-        url: feature.properties.url,
-        data: { ...feature.properties, content_language: 'en' }
-      };
+      const event = mapFeatureToEvent(feature);
 
       const result = await eventService.create(event);
       if (result.isDuplicate) {
@@ -51,4 +40,19 @@ async function run() {
   }
 }
 
-module.exports = { run };
+function mapFeatureToEvent(feature) {
+  return {
+    title: feature.properties.title,
+    type: 'earthquake',
+    source: 'usgs',
+    lat: feature.geometry.coordinates[1],
+    lon: feature.geometry.coordinates[0],
+    depth: feature.geometry.coordinates[2],
+    magnitude: feature.properties.mag,
+    timestamp: new Date(feature.properties.time),
+    url: feature.properties.url,
+    data: { ...feature.properties, content_language: 'en' }
+  };
+}
+
+module.exports = { run, mapFeatureToEvent };

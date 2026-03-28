@@ -216,4 +216,4 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-module.exports = { run };
+module.exports = { run, parseGdacsFeed };

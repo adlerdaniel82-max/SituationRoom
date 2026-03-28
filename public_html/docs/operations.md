@@ -94,6 +94,7 @@ Bestehende Installation auf neues Modell heben:
 Einzelne Jobs können direkt manuell gestartet werden:
 
 ```bash
+npm --prefix public_html/backend test
 node public_html/backend/src/jobs/run-usgs.js
 node public_html/backend/src/jobs/run-gdacs.js
 node public_html/backend/src/jobs/run-gdelt.js
@@ -112,6 +113,10 @@ node public_html/backend/src/jobs/run-acled.js
 node public_html/backend/src/jobs/backfill-scoring.js
 node public_html/backend/src/jobs/backfill-news-validation.js
 ```
+
+Der aktuelle Backend-Smoke-Test deckt ab:
+- Parser-/Mapper-Logik fuer `RSS`, `GDACS`, `USGS`
+- API-Endpunkte `/api/health`, `/api/health/ready`, `/api/sources/status`, `/api/events`
 
 Aktuelle Soll-Intervalle laut `sources`-Seeds:
 - `usgs`: `300s`

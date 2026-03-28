@@ -168,6 +168,9 @@ Wartungsjobs:
 - `node public_html/backend/src/jobs/backfill-scoring.js`
 - `node public_html/backend/src/jobs/backfill-news-validation.js`
 
+Tests:
+- `npm --prefix public_html/backend test`
+
 Die News-Architektur trennt bewusst zwischen zentraler News-Engine und sichtbaren RSS-Feeds:
 - `GDELT` bleibt die zentrale Engine für News-Suche, Event-Validierung, globalen News-Layer und den Aufmerksamkeits-Heatmap-Layer.
 - Sichtbare RSS-Newsfeeds sind aktuell `BBC`, `Guardian`, `Al Jazeera`, `DW`, `France24`, `NPR` und `Sky News`.

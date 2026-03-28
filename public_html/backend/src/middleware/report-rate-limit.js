@@ -1,6 +1,6 @@
 'use strict';
 
-const rateLimit = require('express-rate-limit');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 
 /**
  * Rate Limit für POST /api/events/:id/report-industrial.
@@ -14,7 +14,7 @@ const reportIndustrialRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Zu viele Meldungen – bitte in einigen Minuten erneut versuchen' },
-  keyGenerator: (req) => req.ip
+  keyGenerator: (req) => ipKeyGenerator(req.ip)
 });
 
 module.exports = { reportIndustrialRateLimit };

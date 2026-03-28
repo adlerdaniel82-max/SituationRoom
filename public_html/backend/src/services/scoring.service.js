@@ -90,6 +90,20 @@ function calculateSourceConfidence(eventData) {
 
 function calculateEventSeverity(eventData) {
   const baseSeverity = TYPE_BASE_SEVERITY[eventData.type] ?? TYPE_BASE_SEVERITY.other;
+
+  // Aviation severity is driven by the classifier's gov_score, not physical altitude.
+  // Altitude is irrelevant to strategic importance; a cruise-altitude airliner would
+  // otherwise score identically to a confirmed military transport.
+  if (eventData.type === 'aviation') {
+    const govScore = Number(eventData.data?.gov_score ?? 0);
+    const recencyScore = normalizeRecency(eventData.timestamp);
+    return clampScore(
+      baseSeverity * 0.15
+      + govScore * 0.77
+      + recencyScore * 0.08
+    );
+  }
+
   const magnitudeScore = normalizeMagnitude(eventData);
   const populationScore = normalizePopulation(eventData.affectedPopulation);
   const alertScore = normalizeAlertLevel(eventData.data?.alertLevel);
