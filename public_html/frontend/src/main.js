@@ -2205,14 +2205,12 @@ function normalizeEvent(event) {
 
 function normalizeEventPayload(payload) {
   if (payload?.type === 'FeatureCollection' && Array.isArray(payload.features)) {
+    const features = applyColocatedOffsets(
+      payload.features.map(normalizeMapFeature).filter(Boolean)
+    );
     return {
       events: payload.features.map(normalizeGeoJsonFeature).filter(Boolean),
-      featureCollection: {
-        type: 'FeatureCollection',
-        features: payload.features
-          .map(normalizeMapFeature)
-          .filter(Boolean)
-      }
+      featureCollection: { type: 'FeatureCollection', features }
     };
   }
 
@@ -2221,9 +2219,49 @@ function normalizeEventPayload(payload) {
     events,
     featureCollection: {
       type: 'FeatureCollection',
-      features: events.map(eventToFeature)
+      features: applyColocatedOffsets(events.map(eventToFeature))
     }
   };
+}
+
+function applyColocatedOffsets(features) {
+  const STEP_LON = 0.20;
+  const STEP_LAT = 0.15;
+
+  // Group features by exact coordinate
+  const groups = new Map();
+  for (const feature of features) {
+    const coords = feature?.geometry?.coordinates;
+    if (!Array.isArray(coords) || coords.length < 2) continue;
+    const key = `${coords[0]},${coords[1]}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(feature);
+  }
+
+  // Compute offsets for groups with >1 collocated feature
+  const offsetMap = new Map();
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const n = Math.ceil(Math.sqrt(group.length));
+    const [baseLon, baseLat] = group[0].geometry.coordinates;
+    group.forEach((feature, index) => {
+      const col = index % n;
+      const row = Math.floor(index / n);
+      const dLon = (col - (n - 1) / 2) * STEP_LON;
+      const dLat = (row - (n - 1) / 2) * STEP_LAT;
+      offsetMap.set(feature, [baseLon + dLon, baseLat + dLat]);
+    });
+  }
+
+  // Return new feature objects with adjusted coordinates where needed
+  return features.map((feature) => {
+    const newCoords = offsetMap.get(feature);
+    if (!newCoords) return feature;
+    return {
+      ...feature,
+      geometry: { ...feature.geometry, coordinates: newCoords }
+    };
+  });
 }
 
 function normalizeGeoJsonFeature(feature) {
