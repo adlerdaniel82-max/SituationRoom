@@ -1,0 +1,78 @@
+# robots.txt – situation.schnueddels.de
+# Globale Lagekarte: Katastrophen, humanitäre Signale, Luftbewegungen
+
+User-agent: *
+Allow: /
+Allow: /frontend/
+Disallow: /api/
+Disallow: /cgi-bin/
+Disallow: /logs/
+Disallow: /stats/
+Disallow: /private/
+
+Sitemap: https://situation.schnueddels.de/sitemap.xml
+
+# ── Google ────────────────────────────────────────────────────────────────────
+User-agent: Googlebot
+Allow: /
+
+User-agent: Googlebot-Image
+Disallow: /
+
+# ── Bing / Microsoft ─────────────────────────────────────────────────────────
+User-agent: Bingbot
+Allow: /
+
+# ── AI – OpenAI (ChatGPT Search, GPT browsing) ───────────────────────────────
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+# ── AI – Anthropic (Claude web search) ───────────────────────────────────────
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+Claude-ai: Allow
+
+# ── AI – Perplexity ───────────────────────────────────────────────────────────
+User-agent: PerplexityBot
+Allow: /
+
+# ── AI – You.com ──────────────────────────────────────────────────────────────
+User-agent: YouBot
+Allow: /
+
+# ── AI – Cohere ───────────────────────────────────────────────────────────────
+User-agent: cohere-ai
+Allow: /
+
+# ── AI – Common Crawl (training data für viele LLMs) ─────────────────────────
+User-agent: CCBot
+Allow: /
+
+# ── AI – Apple Intelligence ───────────────────────────────────────────────────
+User-agent: Applebot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+# ── AI – Meta ─────────────────────────────────────────────────────────────────
+User-agent: meta-externalagent
+Allow: /
+
+# ── AI – Amazon Alexa ─────────────────────────────────────────────────────────
+User-agent: Amazonbot
+Allow: /
+
+# ── AI – Diffbot ──────────────────────────────────────────────────────────────
+User-agent: Diffbot
+Allow: /
