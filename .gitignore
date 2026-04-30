@@ -82,3 +82,17 @@ Thumbs.db
 .scripts/
 scripts/
 public_html/scripts/
+
+# Schnueddels local/runtime ignores
+.env
+*.env
+*.log
+logs/
+node_modules/
+vendor/
+private/auth/.env
+backend/.env
+.scripts/db.cnf
+private/.scripts/db.cnf
+private/backups/
+
