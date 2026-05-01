@@ -20,7 +20,7 @@
   --panel-shadow: 0 18px 50px rgba(0, 0, 0, 0.42);
   --monitor-shadow: 0 28px 80px rgba(0, 0, 0, 0.55);
   color-scheme: dark;
-  font-family: "Lato", "Segoe UI", sans-serif;
+  font-family: var(--sd-font-sans, "Lato", "Segoe UI", sans-serif);
 
   /* ── Design-System: Dark Theme (Lato / Sharp) ─────────────────────── */
   --bg:             #0f172a;
@@ -65,7 +65,7 @@ body {
   color: var(--text);
   background:
     radial-gradient(circle at 50% 120%, rgba(25, 58, 103, 0.48), transparent 34%),
-    linear-gradient(180deg, #020305 0%, #05080d 50%, #08111a 100%);
+    linear-gradient(180deg, #020305 0%, var(--sd-bg, #05080d) 50%, #08111a 100%);
 }
 
 body {
