@@ -1156,3 +1156,131 @@ a {
     display: none;
   }
 }
+
+/* Shared platform theme bridge */
+body.situation-app.sd-theme-light {
+  --bg: var(--sd-bg);
+  --bg-bottom: #eef4f0;
+  --panel: var(--sd-panel);
+  --panel-soft: var(--sd-surface);
+  --screen: #e4ece7;
+  --line: var(--sd-border);
+  --line-strong: var(--sd-border-strong);
+  --text: var(--sd-text);
+  --muted: var(--sd-text-muted);
+  --accent: var(--sd-accent);
+  --accent-soft: color-mix(in srgb, var(--sd-accent) 14%, transparent);
+  --critical: #a84038;
+  --high: #98601d;
+  --medium: #8a6a12;
+  --low: #1f7550;
+  --panel-shadow: var(--sd-shadow-sm);
+  --monitor-shadow: 0 18px 44px rgba(24, 43, 35, 0.14);
+  color-scheme: light;
+  background:
+    linear-gradient(180deg, rgba(35, 139, 75, 0.08), transparent 240px),
+    var(--sd-bg);
+}
+
+body.situation-app.sd-theme-light .panel,
+body.situation-app.sd-theme-light .sidebar,
+body.situation-app.sd-theme-light .sources-panel,
+body.situation-app.sd-theme-light .news-panel,
+body.situation-app.sd-theme-light .markets-panel {
+  background: var(--sd-panel);
+  box-shadow: var(--sd-shadow-sm);
+}
+
+body.situation-app.sd-theme-light .sidebar-toggle {
+  background: var(--sd-bg-raised);
+  color: var(--sd-text);
+  border-color: var(--sd-border-strong);
+  box-shadow: var(--sd-shadow-md);
+}
+
+body.situation-app.sd-theme-light .brand-mark,
+body.situation-app.sd-theme-light .eyebrow {
+  color: var(--sd-accent-strong);
+}
+
+body.situation-app.sd-theme-light .sidebar-intro,
+body.situation-app.sd-theme-light .detail-copy,
+body.situation-app.sd-theme-light .detail-legal,
+body.situation-app.sd-theme-light .filter-group h3,
+body.situation-app.sd-theme-light .layer-toggle {
+  color: var(--sd-text-soft);
+}
+
+body.situation-app.sd-theme-light .sidebar-header,
+body.situation-app.sd-theme-light .sidebar-section {
+  border-color: var(--sd-border);
+}
+
+body.situation-app.sd-theme-light .language-switch,
+body.situation-app.sd-theme-light .stat-card,
+body.situation-app.sd-theme-light .source-card,
+body.situation-app.sd-theme-light .event-card,
+body.situation-app.sd-theme-light .market-card,
+body.situation-app.sd-theme-light .group-event-item,
+body.situation-app.sd-theme-light .detail-field {
+  background: var(--sd-surface);
+  border-color: var(--sd-border);
+}
+
+body.situation-app.sd-theme-light .language-switch__button.is-active,
+body.situation-app.sd-theme-light .event-card--active {
+  background: color-mix(in srgb, var(--sd-accent) 12%, var(--sd-surface));
+  color: var(--sd-text);
+}
+
+body.situation-app.sd-theme-light .status-badge[data-tone="live"],
+body.situation-app.sd-theme-light .source-card--on,
+body.situation-app.sd-theme-light .market-card__change--up,
+body.situation-app.sd-theme-light .gov-classification--confirmed {
+  color: #1f7550;
+  background: rgba(35, 139, 75, 0.10);
+  border-color: rgba(35, 139, 75, 0.28);
+}
+
+body.situation-app.sd-theme-light .status-badge[data-tone="loading"],
+body.situation-app.sd-theme-light .gov-classification--watchlist {
+  color: #77590f;
+  background: rgba(213, 169, 73, 0.12);
+  border-color: rgba(138, 106, 18, 0.28);
+}
+
+body.situation-app.sd-theme-light .status-badge[data-tone="error"],
+body.situation-app.sd-theme-light .source-card--off,
+body.situation-app.sd-theme-light .market-card__change--down {
+  color: #a84038;
+  background: rgba(168, 64, 56, 0.10);
+  border-color: rgba(168, 64, 56, 0.28);
+}
+
+body.situation-app.sd-theme-light .monitor-screen {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(238, 244, 240, 0.98));
+  border-color: var(--sd-border-strong);
+  box-shadow:
+    inset 0 0 0 1px rgba(24, 43, 35, 0.04),
+    0 18px 44px rgba(24, 43, 35, 0.14);
+}
+
+body.situation-app.sd-theme-light .monitor-screen::before,
+body.situation-app.sd-theme-light .map-canvas {
+  border-color: rgba(35, 139, 75, 0.16);
+}
+
+body.situation-app.sd-theme-light .map-canvas {
+  background: #dfe9e3;
+}
+
+body.situation-app.sd-theme-light .monitor-base {
+  background: linear-gradient(180deg, #ffffff, #dfe9e3);
+  border-color: var(--sd-border);
+  box-shadow: 0 12px 28px rgba(24, 43, 35, 0.12);
+}
+
+body.situation-app.sd-theme-light .detail-backdrop {
+  background: rgba(20, 32, 27, 0.28);
+}
