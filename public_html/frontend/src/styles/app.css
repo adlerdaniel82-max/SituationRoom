@@ -983,41 +983,6 @@ a {
   text-align: left;
 }
 
-.app-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 4px 0 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--muted);
-}
-
-.app-footer__brand {
-  display: grid;
-  gap: 2px;
-}
-
-.app-footer__brand span {
-  font-size: 0.78rem;
-  color: var(--text);
-}
-
-.app-footer__brand small {
-  font-size: 0.72rem;
-}
-
-.app-footer__links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.app-footer__links .legal-link-button {
-  min-width: 120px;
-  text-align: center;
-}
-
 .empty-state {
   padding: 11px 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1144,10 +1109,6 @@ a {
     max-height: calc(100vh - 32px);
   }
 
-  .app-footer {
-    flex-direction: column;
-    align-items: flex-start;
-  }
 }
 
 @media (min-width: 981px) {

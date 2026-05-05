@@ -708,8 +708,15 @@ function bindUi() {
   nodes.refreshButton.addEventListener('click', () => scheduleViewportRefresh(0));
   nodes.resetFilters.addEventListener('click', resetFilters);
   nodes.sourcesCollapseToggle.addEventListener('click', toggleSourcesPanel);
-  nodes.legalImpressum.addEventListener('click', () => openLegalPanel('impressum'));
-  nodes.legalPrivacy.addEventListener('click', () => openLegalPanel('privacy'));
+  nodes.legalImpressum?.addEventListener('click', () => openLegalPanel('impressum'));
+  nodes.legalPrivacy?.addEventListener('click', () => openLegalPanel('privacy'));
+  window.addEventListener('schnueddels:languagechange', (event) => {
+    const language = event.detail?.language;
+    if (SUPPORTED_LANGUAGES.includes(language)) {
+      event.preventDefault();
+      setLanguage(language);
+    }
+  });
   nodes.detailBackdrop.addEventListener('click', clearSelection);
 
   window.addEventListener('resize', () => {
@@ -904,10 +911,10 @@ function renderStaticText() {
   nodes.newsSectionTitle.textContent = t('ui.importantNewsSection');
   nodes.marketsSectionTitle.textContent = t('ui.marketsSection');
   nodes.marketsSectionMeta.textContent = t('ui.marketsMeta');
-  nodes.footerBrandTitle.textContent = t('meta.title');
-  nodes.footerBrandSubtitle.textContent = t('ui.footerSubtitle');
-  nodes.legalImpressum.textContent = t('ui.legalImprint');
-  nodes.legalPrivacy.textContent = t('ui.legalPrivacy');
+  if (nodes.footerBrandTitle) nodes.footerBrandTitle.textContent = t('meta.title');
+  if (nodes.footerBrandSubtitle) nodes.footerBrandSubtitle.textContent = t('ui.footerSubtitle');
+  if (nodes.legalImpressum) nodes.legalImpressum.textContent = t('ui.legalImprint');
+  if (nodes.legalPrivacy) nodes.legalPrivacy.textContent = t('ui.legalPrivacy');
   nodes.sidebarClose.setAttribute('aria-label', t('ui.closePanel'));
   nodes.languageSwitch?.setAttribute('aria-label', t('ui.languageSwitch'));
   nodes.langSwitchDe?.setAttribute('title', t('ui.languageGerman'));
@@ -1004,6 +1011,7 @@ function loadStoredLanguage() {
 function saveStoredLanguage() {
   try {
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, state.language);
+    window.localStorage.setItem('schnueddels_language', state.language);
   } catch {
     // Ignore storage errors.
   }
