@@ -7,7 +7,7 @@ const envCandidates = [
 ];
 
 for (const envPath of envCandidates) {
-  dotenv.config({ path: envPath, override: false });
+  dotenv.config({ path: envPath, override: true });
 }
 
 module.exports = {
