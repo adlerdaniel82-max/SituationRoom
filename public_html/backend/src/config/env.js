@@ -1,10 +1,7 @@
 const path = require('path');
 const dotenv = require('dotenv');
 
-const envCandidates = [
-  path.resolve(__dirname, '../../../../private/.env'),
-  path.resolve(__dirname, '../../.env')
-];
+const envCandidates = [path.resolve(__dirname, '../../../../private/.env')];
 
 for (const envPath of envCandidates) {
   dotenv.config({ path: envPath, override: true });

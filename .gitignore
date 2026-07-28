@@ -75,6 +75,8 @@ Thumbs.db
 .vscode/
 .vscode-test/
 .claude/
+.qwen/
+.codex/
 .cache-loader/
 *.code-workspace
 
@@ -96,3 +98,7 @@ backend/.env
 private/.scripts/db.cnf
 private/backups/
 
+LESSONS.md
+AGENT.md
+TODO.md
+ROADMAP.md

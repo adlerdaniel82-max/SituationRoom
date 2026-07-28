@@ -167,7 +167,7 @@ const I18N = {
         title: 'Impressum',
         html: `
           <section>
-            <h3>Angaben gemäß § 5 TMG</h3>
+            <h3>Anbieterkennzeichnung</h3>
             <p>Daniel Adler<br>Rembrandtring 14<br>63110 Rodgau<br>Deutschland</p>
           </section>
           <section>
@@ -175,12 +175,12 @@ const I18N = {
             <p>Siehe Originalseite auf schnueddels.de.</p>
           </section>
           <section>
-            <h3>Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV</h3>
+            <h3>Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV</h3>
             <p>Daniel Adler<br>Rembrandtring 14<br>63110 Rodgau</p>
           </section>
           <section>
             <h3>Haftung für Inhalte</h3>
-            <p>Als Diensteanbieter sind wir gemäß § 7 Abs. 1 TMG für eigene Inhalte auf diesen Seiten nach den allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 TMG sind wir jedoch nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen.</p>
+            <p>Als Diensteanbieter sind wir für eigene Inhalte auf diesen Seiten nach den allgemeinen Gesetzen verantwortlich. Eine Verpflichtung zur Überwachung übermittelter oder gespeicherter fremder Informationen besteht nur nach Maßgabe der gesetzlichen Regelungen.</p>
           </section>
           <section>
             <h3>Haftung für Links</h3>
@@ -393,7 +393,7 @@ const I18N = {
         title: 'Imprint',
         html: `
           <section>
-            <h3>Information according to § 5 TMG</h3>
+            <h3>Provider information</h3>
             <p>Daniel Adler<br>Rembrandtring 14<br>63110 Rodgau<br>Germany</p>
           </section>
           <section>
@@ -401,12 +401,12 @@ const I18N = {
             <p>See the original page on schnueddels.de.</p>
           </section>
           <section>
-            <h3>Responsible for content according to § 55 Abs. 2 RStV</h3>
+            <h3>Responsible for content according to § 18 Abs. 2 MStV</h3>
             <p>Daniel Adler<br>Rembrandtring 14<br>63110 Rodgau</p>
           </section>
           <section>
             <h3>Liability for content</h3>
-            <p>As a service provider, we are responsible for our own content on these pages under general law. However, under §§ 8 to 10 TMG, we are not obliged to monitor transmitted or stored third-party information.</p>
+            <p>As a service provider, we are responsible for our own content on these pages under general law. An obligation to monitor transmitted or stored third-party information exists only as required by law.</p>
           </section>
           <section>
             <h3>Liability for links</h3>
