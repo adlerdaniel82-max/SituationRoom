@@ -15,7 +15,7 @@ const CONCURRENT_FETCHES = 3;
  * Uses aircraft_registry_ref as a 30-day TTL cache.
  * Soft-fails on API errors (returns null for missing entries).
  */
-async function enrichBatch(icao24List) {
+async function enrichBatch(icao24List, { logPrefix = 'Aircraft metadata' } = {}) {
   if (!icao24List || icao24List.length === 0) {
     return new Map();
   }
@@ -29,7 +29,7 @@ async function enrichBatch(icao24List) {
   const stale = await aircraftRegistryRepo.findStaleOrMissing(normalized);
 
   if (stale.length > 0) {
-    await fetchAndCacheBatch(stale);
+    await fetchAndCacheBatch(stale, logPrefix);
     // Reload cache entries for the stale ones
     const refreshed = await aircraftRegistryRepo.findByIcao24List(stale);
     for (const [k, v] of refreshed) {
@@ -40,12 +40,29 @@ async function enrichBatch(icao24List) {
   return cached;
 }
 
-async function fetchAndCacheBatch(icao24List) {
+async function fetchAndCacheBatch(icao24List, logPrefix) {
+  const summary = {
+    unavailable410: 0,
+    failures: new Map()
+  };
+
   // Process in chunks to limit concurrency
   for (let i = 0; i < icao24List.length; i += CONCURRENT_FETCHES) {
     const chunk = icao24List.slice(i, i + CONCURRENT_FETCHES);
-    await Promise.all(chunk.map((icao24) => fetchAndCache(icao24)));
+    const results = await Promise.all(chunk.map((icao24) => fetchAndCache(icao24)));
+    for (const result of results) {
+      if (result?.type === 'unavailable410') {
+        summary.unavailable410 += 1;
+      } else if (result?.type === 'failure') {
+        const key = `${result.status ?? result.code ?? 'unknown'}:${result.message}`;
+        const existing = summary.failures.get(key) || { ...result, count: 0 };
+        existing.count += 1;
+        summary.failures.set(key, existing);
+      }
+    }
   }
+
+  logBatchSummary(summary, logPrefix);
 }
 
 async function fetchAndCache(icao24) {
@@ -59,18 +76,37 @@ async function fetchAndCache(icao24) {
     const data = response.data;
     if (!data || typeof data !== 'object') {
       await storeNullEntry(icao24);
-      return;
+      return { type: 'empty' };
     }
 
     const row = normalizeMetadataResponse(icao24, data);
     await aircraftRegistryRepo.upsert(row);
+    return { type: 'success' };
   } catch (error) {
-    if (error.response?.status === 404) {
+    const status = error?.response?.status;
+    if (status === 404 || status === 410) {
       await storeNullEntry(icao24);
+      return status === 410 ? { type: 'unavailable410' } : { type: 'unavailable404' };
     } else {
-      logger.warn(`Aircraft metadata fetch failed for ${icao24}: ${error.message}`);
       // Don't store a null entry on transient errors — allow retry next run
+      return {
+        type: 'failure',
+        status,
+        code: error?.code,
+        message: error?.message || 'Unknown metadata request error'
+      };
     }
+  }
+}
+
+function logBatchSummary(summary, logPrefix) {
+  if (summary.unavailable410 > 0) {
+    logger.info(`${logPrefix}: ${summary.unavailable410} entries unavailable (HTTP 410)`);
+  }
+
+  for (const failure of summary.failures.values()) {
+    const status = failure.status ? `HTTP ${failure.status}` : failure.code || 'network/unknown error';
+    logger.warn(`${logPrefix}: ${failure.count} requests failed (${status}: ${failure.message})`);
   }
 }
 

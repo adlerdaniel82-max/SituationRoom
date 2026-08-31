@@ -41,5 +41,8 @@ LOGS=/home/webuser/web/situation.schnueddels.de/logs
 */30 * * * * $NODE $BACKEND/src/jobs/run-skynews.js >> $LOGS/skynews.log 2>&1
 
 # --- Wartung ---
+# Projektlogs: bei 25 MB rotieren, fünf Generationen aufbewahren
+15 3 * * * /home/webuser/web/situation.schnueddels.de/public_html/cron/rotate-logs.sh
+
 # Cleanup alter Events: täglich um 03:30
 30 3 * * * $NODE $BACKEND/src/jobs/cleanup.js >> $LOGS/cleanup.log 2>&1

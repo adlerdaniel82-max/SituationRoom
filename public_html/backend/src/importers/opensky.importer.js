@@ -49,6 +49,7 @@ const CATEGORY_EVENT_CAPS = {
 
 async function run() {
   logger.info('Running OpenSky importer');
+  const warningSummary = createWarningSummary();
 
   try {
     const states = await fetchStates();
@@ -71,7 +72,7 @@ async function run() {
     const scored = [];
     for (const aircraft of enrichCandidates) {
       const metadata = metadataMap.get(aircraft.icao24) || null;
-      const classification = await classifySafely(aircraft, metadata);
+      const classification = await classifySafely(aircraft, metadata, warningSummary);
       scored.push({ aircraft, metadata, classification });
     }
 
@@ -87,7 +88,7 @@ async function run() {
 
     // ── Step 5: create events ────────────────────────────────────────
     for (const { aircraft, metadata, classification } of selected) {
-      const missionScoreId = await saveMissionScoreSafely(aircraft, metadata, classification);
+      const missionScoreId = await saveMissionScoreSafely(aircraft, metadata, classification, warningSummary);
 
       if (classification.score_total < MIN_SCORE_FOR_EVENT && !isAdsbOnlyKeeper(aircraft)) {
         continue;
@@ -130,6 +131,8 @@ async function run() {
   } catch (error) {
     logger.error('OpenSky importer failed:', error.message);
     throw error;
+  } finally {
+    logWarningSummary(warningSummary);
   }
 }
 
@@ -137,23 +140,23 @@ async function run() {
 
 async function loadMetadataSafely(icao24List) {
   try {
-    return await aircraftMetadataService.enrichBatch(icao24List);
+    return await aircraftMetadataService.enrichBatch(icao24List, { logPrefix: 'OpenSky aircraft metadata' });
   } catch (error) {
     logger.warn(`Aircraft metadata enrichment failed: ${error.message}`);
     return new Map();
   }
 }
 
-async function classifySafely(aircraft, metadata) {
+async function classifySafely(aircraft, metadata, warningSummary) {
   try {
     return await aircraftClassifierService.classifyAircraft(aircraft, metadata);
   } catch (error) {
-    logger.warn(`Aircraft classification failed for ${aircraft.icao24}: ${error.message}`);
+    recordWarning(warningSummary.classification, error);
     return buildFallbackClassification(aircraft);
   }
 }
 
-async function saveMissionScoreSafely(aircraft, metadata, classification) {
+async function saveMissionScoreSafely(aircraft, metadata, classification, warningSummary) {
   try {
     return await airMissionScoreRepo.insert({
       icao24:       aircraft.icao24,
@@ -172,8 +175,31 @@ async function saveMissionScoreSafely(aircraft, metadata, classification) {
       reasons_json: classification.reasons
     });
   } catch (error) {
-    logger.warn(`Failed to save mission score for ${aircraft.icao24}: ${error.message}`);
+    recordWarning(warningSummary.missionScore, error);
     return null;
+  }
+}
+
+function createWarningSummary() {
+  return {
+    classification: new Map(),
+    missionScore: new Map()
+  };
+}
+
+function recordWarning(summary, error) {
+  const message = error?.message || 'Unknown error';
+  summary.set(message, (summary.get(message) || 0) + 1);
+}
+
+function logWarningSummary(summary) {
+  logWarningGroup('OpenSky aircraft classification', summary.classification);
+  logWarningGroup('OpenSky mission score persistence', summary.missionScore);
+}
+
+function logWarningGroup(label, warnings) {
+  for (const [message, count] of warnings) {
+    logger.warn(`${label}: ${count} failures (${message})`);
   }
 }
 
